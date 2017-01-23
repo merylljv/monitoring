@@ -10,14 +10,15 @@ names_MT = ['carlo', 'leo', 'meryll']
 names_D = ['junsat']
 names_Data = ['anj', 'cath', 'marj', 'mart', 'morgan', 'nathan', 'roy']
 names_Data += ['brain', 'kate', 'kennex', 'sky']
-names_Data2 = ['arnel', 'earl', 'tinB', 'zhey']
+names_Data2 = ['arnel', 'earl', 'tinb', 'zhey']
 names_S = ['ivy', 'john', 'kevin', 'prado']
-names_A = ['amy', 'ardeth', 'daisy', 'tinC']
-names_S1 = ['jec', 'jun', 'oscar', 'reyn', 'rodney']
+names_A = ['amy', 'ardeth', 'daisy', 'tinc']
+names_S1 = ['jec', 'junril', 'oscar', 'reyn', 'rodney']
 
 no_shift = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
 no_shift['ts'] = pd.to_datetime(no_shift['ts'])
 no_shift['name'] = no_shift['name'].apply(lambda x: x.lower())
+no_shift = no_shift.set_index('name')
 
 year = int(raw_input('year (e.g. 2017): '))
 month = int(raw_input('month (1 to 12): '))
