@@ -165,6 +165,19 @@ shiftdf = shiftdf[['IOMP-MT','IOMP-CT']]
 
 print shiftdf
 
+############################## shift count (excel) #############################
+
+writer = pd.ExcelWriter('ShiftCount.xlsx')
+try:
+    allsheet = pd.read_excel('ShiftCount.xlsx', sheetname=None)
+    allsheet[date] = shift_count.reset_index().sort('team')
+except:
+    allsheet = {date: shift_count.reset_index()}
+for sheetname, xlsxdf in allsheet.items():
+    xlsxdf.to_excel(writer, sheetname, index=False)
+    worksheet = writer.sheets[sheetname]
+writer.save()
+
 ##################################### EXCEL ####################################
 
 writer = pd.ExcelWriter('MonitoringShift.xlsx')
