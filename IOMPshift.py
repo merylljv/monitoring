@@ -96,7 +96,7 @@ while max_MTshift > 0:
 
 #################################### CT Shift ###################################
 #if CT_assign = end: fills from top to bottom
-if CT_assign == 'end':
+if CT_assign != 'end':
     shiftdf = shiftdf.sort_index()
 else:
     shiftdf = shiftdf.sort_index(ascending=False)
@@ -160,6 +160,7 @@ shiftdf = shiftdf.sort_index()
 
 shiftdf['IOMP-CT'] = shiftdf['IOMP-CT'].apply(lambda x: x[0].upper()+x[1:len(x)])
 shiftdf['IOMP-MT'] = shiftdf['IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
+shiftdf['IOMP-MT'] = ','.join(shiftdf['IOMP-MT'].values).replace('Tinb', 'TinB').split(',')
 shiftdf['IOMP-CT'] = ','.join(shiftdf['IOMP-CT'].values).replace('Tinc', 'TinC').replace('Tinb', 'TinB').split(',')
 shiftdf = shiftdf[['IOMP-MT','IOMP-CT']]
 
