@@ -13,7 +13,7 @@ names_Data2 = ['arnel', 'earl', 'zhey', 'tinb']
 names_D = ['junsat']
 names_S = ['ivy', 'john', 'kevin', 'prado']
 names_A = ['amy', 'ardeth', 'daisy', 'tinc']
-names_S1 = ['jec', 'junril', 'oscar', 'reyn', 'rodney']
+names_S1 = ['jec', 'oscar', 'reyn', 'rodney']
 
 no_shift = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
 no_shift['ts'] = pd.to_datetime(no_shift['ts'])
@@ -49,10 +49,9 @@ df['field_load'] = df['field_load'].apply(lambda x: int(x))
 
 #CT shifts of Admin
 dfA = df.loc[df.team == 'A']
-dfA['CTshift'] = 2
-totalCT -= 2 * len(dfA)
+dfA['CTshift'] = 1
+totalCT -= len(dfA)
 dfA['MTshift'] = 0
-totalMT -= 0 * len(dfA)
 
 #CT shifts of SRS1
 dfS1 = df.loc[df.team == 'S1']
@@ -276,7 +275,7 @@ while MTexcess > 0:
                 for i in range(len(CTSDlst), len(CT)):
                     while True:
                         randomMT = random.choice(nonCT)
-                        if randomCT in MTlst:
+                        if randomMT in MTlst:
                             continue
                         else:
                             break
@@ -454,7 +453,7 @@ while MTexcess > 0:
                 for i in range(len(CTSDlst), MTexcess):
                     while True:
                         randomMT = random.choice(nonCT)
-                        if randomCT in MTlst:
+                        if randomMT in MTlst:
                             continue
                         else:
                             break

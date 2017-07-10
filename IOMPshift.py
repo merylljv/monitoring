@@ -2,6 +2,7 @@ import pandas as pd
 import random
 from datetime import time, timedelta
 from calendar import monthrange
+from collections import Counter
 
 import IOMPshift_computer as scomp
 
@@ -9,10 +10,46 @@ import IOMPshift_computer as scomp
 year = scomp.year
 month = scomp.month
 
-if month == 2:
-    WAshift = 3
-else:
-    WAshift = 2
+# Admin Restrictions
+def AMshift(df):
+    ts = pd.to_datetime(df['ts'].values[0])
+    return ts.time() == time(7, 30)
+
+def weekdayAMshift(df):
+    ts = pd.to_datetime(df['ts'].values[0])
+    return ts.isocalendar()[2] in range(1,6) and AMshift(df)
+    
+def weekdayshift(df):
+    ts = pd.to_datetime(df['ts'].values[0])
+    return ts.isocalendar()[2] in range(1,5) or \
+        (ts.isocalendar()[2] == 5 and AMshift(ts))
+
+def restricted_shift(shiftdf, ts):
+    if ts.time() == time(19, 30):
+        tdelta = 1
+    else:
+        tdelta = 0.5
+    restricted = shiftdf[(shiftdf.index >= ts - timedelta(tdelta))&(shiftdf.index <= ts + timedelta(tdelta))]
+    personnel = set(list(restricted['IOMP-CT'].values) + list(restricted['IOMP-MT'].values))
+    return list(personnel - {'?'})
+
+def stitch_date(lst):
+    lst = sorted(lst)
+    stitched = [[lst[0], lst[1]]]
+    lst = lst[2::]
+    for i in range(len(lst)):
+        stop = stitched[-1][1]
+        curr_start = lst[i]
+        if lst[i] != lst[-1]:
+            curr_stop = lst[i+1]
+        if stop + timedelta(1) >= curr_start:
+            stitched[-1][1] = curr_start
+        else:
+            stitched += [[curr_start, curr_stop]]
+    return stitched
+
+def field_days(shiftdf, name):
+    return
 
 #Number of Shifts per Personnel
 date = scomp.date
@@ -26,14 +63,32 @@ shiftTS = pd.date_range(start=startTS, end=endTS, freq='12H')
 shiftdf = pd.DataFrame({'ts': shiftTS, 'IOMP-MT': ['?']*len(shiftTS), 'IOMP-CT': ['?']*len(shiftTS)})
 shiftdf = shiftdf.set_index('ts')
 
+# admin shifts
+grpts = shiftdf.reset_index().groupby('ts')
+weekdayAM = grpts.apply(weekdayAMshift)
+weekday = grpts.apply(weekdayAMshift)
+AM = grpts.apply(weekdayAMshift)
+amy = random.choice(shiftdf[(AM == True)&(shiftdf['IOMP-CT'] == '?')].index)
+shiftdf.loc[shiftdf.index == amy, ['IOMP-CT']] = 'amy'
+ardeth = random.choice(shiftdf[(weekdayAM == True)&(shiftdf['IOMP-CT'] == '?')].index)
+shiftdf.loc[shiftdf.index == ardeth, ['IOMP-CT']] = 'ardeth'
+daisy = random.choice(shiftdf[(AM == True)&(shiftdf['IOMP-CT'] == '?')].index)
+shiftdf.loc[shiftdf.index == daisy, ['IOMP-CT']] = 'daisy'
+tinc = random.choice(shiftdf[(weekday == True)&(shiftdf['IOMP-CT'] == '?')].index)
+shiftdf.loc[shiftdf.index == tinc, ['IOMP-CT']] = 'tinc'
+
 #Fieldwork Schedule
 no_shift = scomp.no_shift
+no_shift = no_shift[(no_shift.ts >= startTS)&(no_shift.ts <= endTS)]
+
+no_shift_count = Counter(no_shift.index)
+no_shift_count = pd.DataFrame({'name': no_shift_count.keys(), 'field_days': no_shift_count.values()})
 
 #Start of shift assigning
-MT_field1 = len(no_shift[(no_shift.ts >= startTS)&(no_shift.ts < startTS+timedelta(len(scomp.SD)/2.))&(no_shift.index.isin(scomp.SD))])
-MT_field2 = len(no_shift[(no_shift.ts <= endTS)&(no_shift.ts > endTS-timedelta(len(scomp.SD)/2.))&(no_shift.index.isin(scomp.SD))])
-CT_field1 = len(no_shift[(no_shift.ts >= startTS)&(no_shift.ts < startTS+timedelta(len(scomp.CT)/2.))&(no_shift.index.isin(scomp.CT))])
-CT_field2 = len(no_shift[(no_shift.ts <= endTS)&(no_shift.ts > endTS-timedelta(len(scomp.CT)/2.))&(no_shift.index.isin(scomp.CT))])
+MT_field1 = len(no_shift[(no_shift.ts < startTS+timedelta(len(scomp.SD)/2.))&(no_shift.index.isin(scomp.SD))])
+MT_field2 = len(no_shift[(no_shift.ts > endTS-timedelta(len(scomp.SD)/2.))&(no_shift.index.isin(scomp.SD))])
+CT_field1 = len(no_shift[(no_shift.ts < startTS+timedelta(len(scomp.CT)/2.))&(no_shift.index.isin(scomp.CT))])
+CT_field2 = len(no_shift[(no_shift.ts > endTS-timedelta(len(scomp.CT)/2.))&(no_shift.index.isin(scomp.CT))])
 if MT_field1 >= MT_field2:
     MT_assign = 'start'
 else:
@@ -62,29 +117,20 @@ max_MTshift = max(shift_count.remaining_MTshift)
 
 while max_MTshift > 0:
     MTset = list(shift_count[(shift_count.remaining_MTshift.isin([max_MTshift, max_MTshift-1]))&(shift_count.remaining_MTshift > 0)].index)
-    random.shuffle(MTset)
     #First set of MT shifts (equal to number of personnel with max MT shifts)
     while len(MTset) != 0:
+        ts = shiftdf.loc[shiftdf['IOMP-MT'] == '?'].index[0]
         while True:
             #random personnel to take MT shift
-            randomMT = MTset[0]
+            randomMT = random.choice(MTset)
             #checks if has fieldwork during that day
-            no_shift_lst = no_shift[no_shift.ts == shiftdf.loc[shiftdf['IOMP-MT'] == '?'].index[0].date()].index
-            try:
-                prev_shift_lst = [shiftdf.loc[shiftdf['IOMP-MT'] != '?']['IOMP-MT'].values[-1]]
-            except:
-                prev_shift_lst = []
-                print 'first MT shift'
-            try:
-                if shiftdf.loc[shiftdf['IOMP-MT'] == '?'].index[0].time() == time(19,30):
-                    prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-MT'] != '?']['IOMP-MT'].values[-2]]
-            except:
-                print 'first MT night shift'
-            if randomMT not in no_shift_lst and randomMT not in prev_shift_lst:
+            no_shift_lst = no_shift[no_shift.ts == ts.date()].index
+            restricted_list = restricted_shift(shiftdf, ts)
+            if randomMT not in no_shift_lst and randomMT not in restricted_list:
                 break
             else:
                 MTset = MTset[1::]+[MTset[0]]
-        shiftdf.loc[shiftdf.loc[shiftdf['IOMP-MT'] == '?'].index[0]]['IOMP-MT'] = randomMT
+        shiftdf.loc[shiftdf.index == ts, ['IOMP-MT']] = randomMT
         MTlst.remove(randomMT)
         MTset.remove(randomMT)
     
@@ -96,13 +142,13 @@ while max_MTshift > 0:
 
 #################################### CT Shift ###################################
 #if CT_assign = end: fills from top to bottom
-if CT_assign != 'end':
+if CT_assign != 'start':
     shiftdf = shiftdf.sort_index()
 else:
     shiftdf = shiftdf.sort_index(ascending=False)
 
 CTlst = []
-for i in sorted(set(shift_count[shift_count.CTshift != 0].index)):
+for i in sorted(set(shift_count[(shift_count.CTshift != 0)&(shift_count.team != 'A')].index)):
     CTlst += [i]*shift_count[shift_count.index == i]['CTshift'].values[0]
 
 remaining_CTshift = []
@@ -113,39 +159,20 @@ max_CTshift = max(shift_count.remaining_CTshift)
 
 while max_CTshift > 0:
     CTset = list(shift_count[(shift_count.remaining_CTshift > 0)].index)
-    random.shuffle(CTset)
     #First set of CT shifts (equal to number of personnel with max CT shifts)
     while len(CTset) != 0:
+        ts = shiftdf.loc[shiftdf['IOMP-CT'] == '?'].index[0]
         while True:
             #random personnel to take CT shift
-            randomCT = CTset[0]
+            randomCT = random.choice(CTset)
             #checks if has fieldwork during that day
-            no_shift_lst = no_shift[no_shift.ts == shiftdf.loc[shiftdf['IOMP-CT'] == '?'].index[0].date()].index
-            prev_shift_lst = [shiftdf.loc[shiftdf['IOMP-CT'] == '?']['IOMP-MT'].values[0]]
-            try:
-                prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] != '?']['IOMP-CT'].values[-1]]
-                prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] != '?']['IOMP-MT'].values[-1]]
-            except:
-                print 'first CT shift'
-            try:
-                prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] == '?']['IOMP-MT'].values[1]]
-            except:
-                print 'last CT shift'
-            try:
-                if shiftdf.loc[shiftdf['IOMP-CT'] == '?'].index[0].time() == time(19,30):
-                    prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] != '?']['IOMP-CT'].values[-2]]
-                    prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] != '?']['IOMP-MT'].values[-2]]
-            except:
-                print 'first CT night shift'
-            try:
-                prev_shift_lst += [shiftdf.loc[shiftdf['IOMP-CT'] == '?']['IOMP-MT'].values[2]]
-            except:
-                print 'last CT night shift'
-            if randomCT not in no_shift_lst and randomCT not in prev_shift_lst:
+            no_shift_lst = no_shift[no_shift.ts == ts.date()].index
+            restricted_list = restricted_shift(shiftdf, ts)
+            if randomCT not in no_shift_lst and randomCT not in restricted_list:
                 break
             else:
                 CTset = CTset[1::]+[CTset[0]]
-        shiftdf.loc[shiftdf.loc[shiftdf['IOMP-CT'] == '?'].index[0]]['IOMP-CT'] = randomCT
+        shiftdf.loc[shiftdf.index == ts, ['IOMP-CT']] = randomCT
         CTlst.remove(randomCT)
         CTset.remove(randomCT)
     
