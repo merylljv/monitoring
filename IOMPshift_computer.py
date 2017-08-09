@@ -13,7 +13,7 @@ names_Data2 = ['arnel', 'earl', 'zhey', 'tinb']
 names_D = ['junsat']
 names_S = ['ivy', 'john', 'kevin', 'prado']
 names_A = ['amy', 'ardeth', 'daisy', 'tinc']
-names_S1 = ['jec', 'oscar', 'reyn', 'rodney']
+names_S1 = ['jec', 'oscar', 'reyn', 'rodney', 'web']
 
 no_shift = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
 no_shift['ts'] = pd.to_datetime(no_shift['ts'])
@@ -32,8 +32,8 @@ totalMT = totalCT
 df = pd.DataFrame({'name': names_CTD + names_CTSD + names_CTSS+ names_MT + names_D \
         + names_Data + names_Data2 + names_S + names_A + names_S1, \
         'team': ['CTD']*len(names_CTD) + ['CTSD']*len(names_CTSD) + ['CTSS']*len(names_CTSS) \
-        + ['MT']*len(names_MT) + ['D']*len(names_D) + ['Data']*len(names_Data) \
-        + ['Data2']*len(names_Data2) + ['S']*len(names_S) + ['A']*len(names_A) + ['S1']*len(names_S1)})
+        + ['MT']*len(names_MT) + ['Data2']*len(names_D) + ['Data']*len(names_Data) \
+        + ['Data2']*len(names_Data2) + ['SWAT']*len(names_S) + ['Admin']*len(names_A) + ['S1']*len(names_S1)})
 df = df.set_index('name')
 startTS = pd.to_datetime(str(year)+'-'+str(month))
 if month != 12:
@@ -48,19 +48,25 @@ df['field_load'] = np.round(df['field']/7.)
 df['field_load'] = df['field_load'].apply(lambda x: int(x))
 
 #CT shifts of Admin
-dfA = df.loc[df.team == 'A']
+dfA = df.loc[df.team == 'Admin']
 dfA['CTshift'] = 1
 totalCT -= len(dfA)
 dfA['MTshift'] = 0
 
 #CT shifts of SRS1
-dfS1 = df.loc[df.team == 'S1']
+dfS1 = df.loc[(df.team == 'S1')&(df.index != 'web')]
 dfS1['CTshift'] = 1
-totalCT -= len(dfS1)
+totalCT -= sum(dfS1.CTshift)
 dfS1['MTshift'] = 1
-totalMT -= len(dfS1)
+totalMT -= sum(dfS1.MTshift)
+new_dfS1 = df.loc[df.index == 'web']
+new_dfS1['CTshift'] = 2
+totalCT -= sum(new_dfS1.CTshift)
+new_dfS1['MTshift'] = 0
+totalMT -= sum(new_dfS1.MTshift)
+dfS1 = dfS1.append(new_dfS1)
 
-df = df[(df.team != 'A')&(df.team != 'S1')]
+df = df[(df.team != 'Admin')&(df.team != 'S1')]
 
 EqualLoad = int(totalCT + totalMT + sum(df.field_load))/len(df)
 

@@ -116,7 +116,7 @@ shift_count['remaining_MTshift'] = remaining_MTshift
 max_MTshift = max(shift_count.remaining_MTshift)
 
 while max_MTshift > 0:
-    MTset = list(shift_count[(shift_count.remaining_MTshift.isin([max_MTshift, max_MTshift-1]))&(shift_count.remaining_MTshift > 0)].index)
+    MTset = list(shift_count[(shift_count.remaining_MTshift >= max_MTshift-1)&(shift_count.remaining_MTshift > 0)].index)
     #First set of MT shifts (equal to number of personnel with max MT shifts)
     while len(MTset) != 0:
         ts = shiftdf.loc[shiftdf['IOMP-MT'] == '?'].index[0]
@@ -142,23 +142,27 @@ while max_MTshift > 0:
 
 #################################### CT Shift ###################################
 #if CT_assign = end: fills from top to bottom
-if CT_assign != 'start':
+if CT_assign == 'start':
     shiftdf = shiftdf.sort_index()
 else:
     shiftdf = shiftdf.sort_index(ascending=False)
 
 CTlst = []
-for i in sorted(set(shift_count[(shift_count.CTshift != 0)&(shift_count.team != 'A')].index)):
+for i in sorted(set(shift_count[(shift_count.CTshift != 0)&(shift_count.team != 'Admin')].index)):
     CTlst += [i]*shift_count[shift_count.index == i]['CTshift'].values[0]
 
 remaining_CTshift = []
 for i in shift_count.index:
     remaining_CTshift += [CTlst.count(i)]
 shift_count['remaining_CTshift'] = remaining_CTshift
+shift_count.loc[shift_count.team == 'Admin', ['remaining_CTshift']] = 0
+
 max_CTshift = max(shift_count.remaining_CTshift)
 
 while max_CTshift > 0:
-    CTset = list(shift_count[(shift_count.remaining_CTshift > 0)].index)
+    CTset = list(shift_count[(shift_count.remaining_CTshift > 0) \
+                #& (shift_count.remaining_CTshift >= max_CTshift-1) \
+                ].index)
     #First set of CT shifts (equal to number of personnel with max CT shifts)
     while len(CTset) != 0:
         ts = shiftdf.loc[shiftdf['IOMP-CT'] == '?'].index[0]
@@ -196,11 +200,14 @@ print shiftdf
 ############################## shift count (excel) #############################
 
 writer = pd.ExcelWriter('ShiftCount.xlsx')
+shift_count['team'] = ','.join(shift_count['team'].values).replace('CTD', 'CT').replace('CTSD', 'CT').replace('CTSS', 'CT').split(',')
+shift_count = shift_count.reset_index().sort_values(['team', 'name'])
+
 try:
     allsheet = pd.read_excel('ShiftCount.xlsx', sheetname=None)
-    allsheet[date] = shift_count.reset_index().sort('team')
+    allsheet[date] = shift_count
 except:
-    allsheet = {date: shift_count.reset_index()}
+    allsheet = {date: shift_count}
 for sheetname, xlsxdf in allsheet.items():
     xlsxdf.to_excel(writer, sheetname, index=False)
     worksheet = writer.sheets[sheetname]
