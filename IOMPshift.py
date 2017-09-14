@@ -10,6 +10,25 @@ import IOMPshift_computer as scomp
 year = scomp.year
 month = scomp.month
 
+def indiv_sched(ind_sched, ts):
+    class_sched = pd.DataFrame(columns=['name', 'ts'])
+    name = ind_sched['name'].values[0]
+    for i in range(len(ind_sched)):
+        day = ind_sched[i:i+1]['day'].values[0]
+        time = ind_sched[i:i+1]['time'].values[0]
+        ts_sched = ts[(ts.strftime('%A') == day)&(ts.time == pd.to_datetime(time).time())]
+        sched = pd.DataFrame({'name': [name]*len(ts_sched), 'ts':ts_sched})
+        class_sched = class_sched.append(sched, ignore_index = True)
+    return class_sched
+
+def class_sched(ts):
+    sched = pd.read_csv('class_sched.csv')
+    ind_sched = sched.groupby('name', as_index=False)
+    class_sched = ind_sched.apply(indiv_sched, ts=ts)
+    class_sched = class_sched.drop_duplicates()
+    class_sched = class_sched.reset_index(drop=True)
+    return class_sched
+
 # Admin Restrictions
 def AMshift(df):
     ts = pd.to_datetime(df['ts'].values[0])
@@ -33,24 +52,6 @@ def restricted_shift(shiftdf, ts):
     personnel = set(list(restricted['IOMP-CT'].values) + list(restricted['IOMP-MT'].values))
     return list(personnel - {'?'})
 
-def stitch_date(lst):
-    lst = sorted(lst)
-    stitched = [[lst[0], lst[1]]]
-    lst = lst[2::]
-    for i in range(len(lst)):
-        stop = stitched[-1][1]
-        curr_start = lst[i]
-        if lst[i] != lst[-1]:
-            curr_stop = lst[i+1]
-        if stop + timedelta(1) >= curr_start:
-            stitched[-1][1] = curr_start
-        else:
-            stitched += [[curr_start, curr_stop]]
-    return stitched
-
-def field_days(shiftdf, name):
-    return
-
 #Number of Shifts per Personnel
 date = scomp.date
 shift_count = scomp.shiftdf
@@ -62,6 +63,8 @@ endTS = pd.to_datetime(str(year) + '-' + str(month) + '-' + str(last_shift) + ' 
 shiftTS = pd.date_range(start=startTS, end=endTS, freq='12H')
 shiftdf = pd.DataFrame({'ts': shiftTS, 'IOMP-MT': ['?']*len(shiftTS), 'IOMP-CT': ['?']*len(shiftTS)})
 shiftdf = shiftdf.set_index('ts')
+
+add_restricted = class_sched(shiftdf.index)
 
 # admin shifts
 grpts = shiftdf.reset_index().groupby('ts')
@@ -126,7 +129,8 @@ while max_MTshift > 0:
             #checks if has fieldwork during that day
             no_shift_lst = no_shift[no_shift.ts == ts.date()].index
             restricted_list = restricted_shift(shiftdf, ts)
-            if randomMT not in no_shift_lst and randomMT not in restricted_list:
+            with_class = list(add_restricted[add_restricted.ts == ts].name)
+            if randomMT not in no_shift_lst and randomMT not in restricted_list and randomMT not in with_class:
                 break
             else:
                 MTset = MTset[1::]+[MTset[0]]
@@ -172,7 +176,8 @@ while max_CTshift > 0:
             #checks if has fieldwork during that day
             no_shift_lst = no_shift[no_shift.ts == ts.date()].index
             restricted_list = restricted_shift(shiftdf, ts)
-            if randomCT not in no_shift_lst and randomCT not in restricted_list:
+            with_class = list(add_restricted[add_restricted.ts == ts].name)
+            if randomCT not in no_shift_lst and randomCT not in restricted_list and randomCT not in with_class:
                 break
             else:
                 CTset = CTset[1::]+[CTset[0]]
