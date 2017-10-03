@@ -535,4 +535,43 @@ dfIOMP = dfIOMP.append(dfA).append(dfS1)
 dfIOMP = dfIOMP.fillna(0)
 dfIOMP['load'] = dfIOMP['MTshift'] + dfIOMP['field_load'] + dfIOMP['CTshift']
 
+neg_MTshift = dfIOMP[dfIOMP.MTshift < 0]
+if len(neg_MTshift) != 0:
+    neg_MTshift['CTshift'] = neg_MTshift['CTshift'] + neg_MTshift['MTshift']
+    neg_MTshift['MTshift'] = 0
+    dfIOMP = dfIOMP[~dfIOMP.index.isin(neg_MTshift.index)]
+    dfIOMP = dfIOMP.append(neg_MTshift)
+
+neg_CTshift = dfIOMP[dfIOMP.CTshift < 0]
+if len(neg_CTshift) != 0:
+    neg_CTshift['MTshift'] = neg_CTshift['MTshift'] + neg_CTshift['CTshift']
+    neg_CTshift['CTshift'] = 0
+    dfIOMP = dfIOMP[~dfIOMP.index.isin(neg_CTshift.index)]
+    dfIOMP = dfIOMP.append(neg_CTshift)
+
+total_CTshift = dfIOMP['CTshift'].sum()
+total_MTshift = dfIOMP['MTshift'].sum()
+if total_CTshift < total_MTshift:
+    no_CT = dfIOMP[~dfIOMP.team.isin(['S1', 'CTD', 'CTSD', 'CTSS', 'Admin'])&(dfIOMP.CTshift == 0)]
+    chosen_CT_list = []
+    while len(chosen_CT_list) != np.abs(total_CTshift - total_MTshift)/2:
+        chosen_CT = random.choice(no_CT.index)
+        if chosen_CT not in chosen_CT_list:
+            chosen_CT_list += [chosen_CT]
+    no_CT = no_CT[no_CT.index.isin(chosen_CT_list)]
+    no_CT['CTshift'] += 1
+    no_CT['MTshift'] -= 1
+    dfIOMP = dfIOMP[~dfIOMP.index.isin(chosen_CT_list)].append(no_CT)
+if total_MTshift < total_CTshift:
+    with_CT = dfIOMP[~dfIOMP.team.isin(['S1', 'CTD', 'CTSD', 'CTSS', 'Admin'])&(dfIOMP.CTshift != 0)]
+    chosen_MT_list = []
+    while len(chosen_MT_list) != np.abs(total_MTshift - total_CTshift)/2:
+        chosen_MT = random.choice(with_CT.index)
+        if chosen_MT not in chosen_MT_list:
+            chosen_MT_list += [chosen_MT]
+    with_CT = with_CT[with_CT.index.isin(chosen_MT_list)]
+    with_CT['MTshift'] += 1
+    with_CT['CTshift'] -= 1
+    dfIOMP = dfIOMP[~dfIOMP.index.isin(chosen_MT_list)].append(with_CT)
+
 shiftdf = dfIOMP[['team', 'field', 'MTshift', 'CTshift', 'load']].sort_index()

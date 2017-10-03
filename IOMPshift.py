@@ -145,8 +145,23 @@ while max_MTshift > 0:
     max_MTshift = max(shift_count.remaining_MTshift)
 
 #################################### CT Shift ###################################
+
+# with more than 11 days fieldwork
+excess_field = shift_count[(shift_count.field > 11)&(shift_count.CTshift > 0)].index
+
+for i in excess_field:
+    field_days = no_shift[no_shift.index == i].index
+    avail_shift = shiftdf[(shiftdf['IOMP-CT'] == '?')&~(shiftdf.index.isin(field_days))].index
+    chosen_shift = []
+    nth_shift = 0
+    while len(chosen_shift) != shift_count[shift_count.index == i]['CTshift'].values[0]:
+        chosen_shift += [avail_shift[nth_shift]]
+        nth_shift += random.choice([3, 4])
+    for chosen_ts in chosen_shift:
+        shiftdf.loc[shiftdf.index == chosen_ts, ['IOMP-CT']] = i
+
 #if CT_assign = end: fills from top to bottom
-if CT_assign == 'start':
+if CT_assign != 'start':
     shiftdf = shiftdf.sort_index()
 else:
     shiftdf = shiftdf.sort_index(ascending=False)
@@ -160,6 +175,10 @@ for i in shift_count.index:
     remaining_CTshift += [CTlst.count(i)]
 shift_count['remaining_CTshift'] = remaining_CTshift
 shift_count.loc[shift_count.team == 'Admin', ['remaining_CTshift']] = 0
+shift_count.loc[shift_count.index.isin(excess_field) , ['remaining_CTshift']] = 0
+for i in excess_field:
+    while i in CTlst:
+        CTlst.remove(i)
 
 max_CTshift = max(shift_count.remaining_CTshift)
 
