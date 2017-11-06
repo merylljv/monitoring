@@ -3,10 +3,10 @@ import random
 import numpy as np
 from calendar import monthrange
 
-names_CTD = ['anne', 'claud', 'edch', 'eunice', 'lem', 'mikee', 'momay', 'pau']
+names_CTD = ['anne', 'camille', 'claud', 'edch', 'eunice', 'lem', 'mikee', 'momay', 'pau']
 names_CTSD = ['harry', 'pati']
 names_CTSS = ['biboy']
-names_MT = ['carlo', 'leo', 'meryll']
+names_MT = ['carlo', 'leo', 'marvin', 'meryll']
 names_Data = ['anj', 'cath', 'marj', 'mart', 'morgan', 'nathan', 'roy']
 names_Data += ['brain', 'kate', 'kennex', 'sky']
 names_Data2 = ['arnel', 'earl', 'zhey', 'tinb']
