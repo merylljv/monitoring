@@ -215,8 +215,7 @@ shiftdf = shiftdf.sort_index()
 
 shiftdf['IOMP-CT'] = shiftdf['IOMP-CT'].apply(lambda x: x[0].upper()+x[1:len(x)])
 shiftdf['IOMP-MT'] = shiftdf['IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
-shiftdf['IOMP-MT'] = ','.join(shiftdf['IOMP-MT'].values).replace('Tinb', 'TinB').split(',')
-shiftdf['IOMP-CT'] = ','.join(shiftdf['IOMP-CT'].values).replace('Tinc', 'TinC').replace('Tinb', 'TinB').split(',')
+shiftdf['IOMP-CT'] = ','.join(shiftdf['IOMP-CT'].values).replace('Tinc', 'TinC').split(',')
 shiftdf = shiftdf[['IOMP-MT','IOMP-CT']]
 
 print shiftdf
@@ -224,7 +223,7 @@ print shiftdf
 ############################## shift count (excel) #############################
 
 writer = pd.ExcelWriter('ShiftCount.xlsx')
-shift_count['team'] = ','.join(shift_count['team'].values).replace('CTD', 'CT').replace('CTSD', 'CT').replace('CTSS', 'CT').split(',')
+shift_count['team'] = ','.join(shift_count['team'].values).replace('CTD', 'CT').replace('CTS', 'CT').split(',')
 shift_count = shift_count.reset_index().sort_values(['team', 'name'])
 
 try:
