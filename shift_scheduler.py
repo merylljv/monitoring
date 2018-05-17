@@ -109,7 +109,7 @@ for admin in shift_count[(shift_count.team == 'admin') & (shift_count.CT != 0)][
 # shift of people with fieldwork
 fieldwork = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
 fieldwork['ts'] = pd.to_datetime(fieldwork['ts'])
-fieldwork = fieldwork[(fieldwork.ts >= datetime.strptime(div.date, '%B%Y')) & (fieldwork.ts <= div.endTS)]
+fieldwork = fieldwork[(fieldwork.ts >= datetime.strptime(div.date, '%b%Y')) & (fieldwork.ts <= div.endTS)]
 fieldwork['name'] = fieldwork['name'].apply(lambda x: x.lower())
 fieldwork['id'] = range(len(fieldwork))
 fieldwork_id = fieldwork.groupby('id', as_index=False)
