@@ -1,3 +1,11 @@
+"""
+works with the following assumptions:
+1. scheduled fieldwork for at least 1 IOMP
+2. twice the number of IOMP that takes CT shifts only > 
+    number of IOMP that takes both MT and CT shifts > 
+        number of IOMP that takes CT shifts only
+"""
+
 import pandas as pd
 import random
 from calendar import monthrange
@@ -37,7 +45,18 @@ min_shift = int(total_days * 4 - len(admin_shift)) / int(len(shift_count) - len(
 pureCT_shift = shift_count[shift_count.team.isin(['S1', 'CT'])]
 pureCT_shift['CT'] = min_shift
 both_shift = shift_count[~shift_count.team.isin(['S1', 'CT', 'admin'])]
-both_shift['MT'] = min_shift - both_shift['CT']
+MT_min = min([min_shift, int(total_days * 2) / len(both_shift)])
+if MT_min == min_shift:
+    both_shift['MT'] = MT_min - both_shift['CT']
+else:
+    both_shift['MT'] = MT_min
+    remaining_MT = total_days * 2 - (len(both_shift) * MT_min)
+    remaining_MT_to_CT = len(both_shift) - remaining_MT
+    MT_list = sorted(set(both_shift['name']) - set(both_shift[both_shift.CT != 0]['name']))
+    random.shuffle(MT_list)
+    to_CTshift = MT_list[0:remaining_MT_to_CT]
+    both_shift.loc[both_shift.name.isin(to_CTshift), 'CT'] += 1
+    both_shift.loc[~both_shift.name.isin(to_CTshift), 'MT'] += 1
 shift_count = admin_shift.append(pureCT_shift).append(both_shift)
 
 # random personnel to not take excess shift
