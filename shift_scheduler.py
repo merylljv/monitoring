@@ -1,8 +1,3 @@
-"""
-works with the assumption that at least 6 MT and at least 6 CT would take 3 shifts
-"""
-
-
 from collections import Counter
 from calendar import monthrange
 from datetime import time, timedelta, datetime

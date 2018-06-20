@@ -28,13 +28,16 @@ shift_count['CT'] = 0
 for CT in holidays['IOMP-CT'].values:
     shift_count.loc[shift_count.name == CT, 'CT'] += 1
 
-# 1 shift for admin, 2 for others
+# 1 shift for admin, min_shift for others
 admin_shift = shift_count[shift_count.team == 'admin']
 admin_shift['CT'] = 1
+
+min_shift = int(total_days * 4 - len(admin_shift)) / int(len(shift_count) - len(admin_shift))
+
 pureCT_shift = shift_count[shift_count.team.isin(['S1', 'CT'])]
-pureCT_shift['CT'] = 2
+pureCT_shift['CT'] = min_shift
 both_shift = shift_count[~shift_count.team.isin(['S1', 'CT', 'admin'])]
-both_shift['MT'] = 2 - both_shift['CT']
+both_shift['MT'] = min_shift - both_shift['CT']
 shift_count = admin_shift.append(pureCT_shift).append(both_shift)
 
 # random personnel to not take excess shift
@@ -69,7 +72,7 @@ else:
     curr_no_excess2.to_csv('no_excess_shift.csv', header=False, index=False)
     curr_no_excess = curr_no_excess.append(curr_no_excess2)
 
-shift_count.loc[shift_count.name.isin(set(pureCT_shift['name']) - set(curr_no_excess['name'])), 'CT'] = 3
+shift_count.loc[shift_count.name.isin(set(pureCT_shift['name']) - set(curr_no_excess['name'])), 'CT'] = min_shift + 1
 shift_count.loc[shift_count.name.isin(set('biboy') - set(curr_no_excess['name'])), 'CT'] += 1
 CTexcess = total_days * 2 - sum(shift_count['CT'])
 MT = sorted(set(both_shift['name']) - set('biboy') - set(curr_no_excess['name']))
