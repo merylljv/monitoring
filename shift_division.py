@@ -66,44 +66,45 @@ shift_count = admin_shift.append(S1_shift).append(pureCT_shift).append(both_shif
 # random personnel to not take excess shift
 num_no_excess = (len(shift_count) - len(admin_shift) - len(S1_shift)) - (total_days * 4 - (sum(shift_count['MT']) + sum(shift_count['CT'])))
 
-try:
-    no_excess = pd.read_csv('no_excess_shift.csv', names=['date', 'name'])
-except:
-    no_excess = pd.DataFrame(data=None, columns=['name'])
-    
-if len(no_excess) == len(both_shift) + len(pureCT_shift) or len(no_excess) == 0:
-    IOMP = shift_count[~shift_count.team.isin(['admin', 'S1'])]['name'].values
-    random.shuffle(IOMP)
-    curr_no_excess = pd.DataFrame({'name': IOMP[0:num_no_excess]})
-    curr_no_excess['date'] = date
-    curr_no_excess = curr_no_excess[['date', 'name']]
-    curr_no_excess.to_csv('no_excess_shift.csv', header=False, index=False)
-elif len(no_excess) <= len(both_shift) + len(pureCT_shift) - num_no_excess:
-    IOMP = sorted(set(shift_count[~shift_count.team.isin(['admin', 'S1'])]['name']) - set(no_excess['name']))
-    random.shuffle(IOMP)
-    curr_no_excess = pd.DataFrame({'name': IOMP[0:num_no_excess]})
-    curr_no_excess['date'] = date
-    curr_no_excess = curr_no_excess[['date', 'name']]
-    curr_no_excess.to_csv('no_excess_shift.csv', header=False, mode='a', index=False)
-else:
-    curr_no_excess = pd.DataFrame({'name': sorted(set(shift_count[~shift_count.team.isin(['admin', 'S1'])]['name']) - set(no_excess['name']))})
-    IOMP = shift_count[~shift_count.team.isin(['admin', 'S1'])]['name'].values
-    random.shuffle(IOMP)
-    curr_no_excess2 = pd.DataFrame({'name': IOMP[0:num_no_excess-len(curr_no_excess)]})
-    curr_no_excess2['date'] = date
-    curr_no_excess2 = curr_no_excess2[['date', 'name']]
-    curr_no_excess2.to_csv('no_excess_shift.csv', header=False, index=False)
-    curr_no_excess = curr_no_excess.append(curr_no_excess2)
 
-shift_count.loc[shift_count.name.isin(set(pureCT_shift['name']) - set(curr_no_excess['name'])), 'CT'] = min_shift + 1
-shift_count.loc[shift_count.name.isin(set('biboy') - set(curr_no_excess['name'])), 'CT'] += 1
-CTexcess = total_days * 2 - sum(shift_count['CT'])
-MT = sorted(set(both_shift['name']) - set('biboy') - set(curr_no_excess['name']))
-random.shuffle(MT)
-MT_to_CT = MT[0:CTexcess]
-shift_count.loc[shift_count.name.isin(MT_to_CT), 'CT'] += 1
-MT = MT[CTexcess::]
-shift_count.loc[shift_count.name.isin(MT), 'MT'] += 1
+if num_no_excess != len(shift_count) - (len(admin_shift) + len(S1_shift)):
+    try:
+        no_excess = pd.read_csv('no_excess_shift.csv', names=['date', 'name'])
+    except:
+        no_excess = pd.DataFrame(data=None, columns=['name'])
+        
+    if len(no_excess) == len(both_shift) + len(pureCT_shift) or len(no_excess) == 0:
+        IOMP = shift_count[~shift_count.team.isin(['admin', 'S1'])]['name'].values
+        random.shuffle(IOMP)
+        curr_no_excess = pd.DataFrame({'name': IOMP[0:num_no_excess]})
+        curr_no_excess['date'] = date
+        curr_no_excess = curr_no_excess[['date', 'name']]
+        curr_no_excess.to_csv('no_excess_shift.csv', header=False, index=False)
+    elif len(no_excess) <= len(both_shift) + len(pureCT_shift) - num_no_excess:
+        IOMP = sorted(set(shift_count[~shift_count.team.isin(['admin', 'S1'])]['name']) - set(no_excess['name']))
+        random.shuffle(IOMP)
+        curr_no_excess = pd.DataFrame({'name': IOMP[0:num_no_excess]})
+        curr_no_excess['date'] = date
+        curr_no_excess = curr_no_excess[['date', 'name']]
+        curr_no_excess.to_csv('no_excess_shift.csv', header=False, mode='a', index=False)
+    else:
+        curr_no_excess = pd.DataFrame({'name': sorted(set(shift_count[~shift_count.team.isin(['admin', 'S1'])]['name']) - set(no_excess['name']))})
+        IOMP = shift_count[~shift_count.team.isin(['admin', 'S1'])]['name'].values
+        random.shuffle(IOMP)
+        curr_no_excess2 = pd.DataFrame({'name': IOMP[0:num_no_excess-len(curr_no_excess)]})
+        curr_no_excess2['date'] = date
+        curr_no_excess2 = curr_no_excess2[['date', 'name']]
+        curr_no_excess2.to_csv('no_excess_shift.csv', header=False, index=False)
+        curr_no_excess = curr_no_excess.append(curr_no_excess2)
+    shift_count.loc[shift_count.name.isin(set(pureCT_shift['name']) - set(curr_no_excess['name'])), 'CT'] = min_shift + 1
+    shift_count.loc[shift_count.name.isin(set('biboy') - set(curr_no_excess['name'])), 'CT'] += 1
+    CTexcess = total_days * 2 - sum(shift_count['CT'])
+    MT = sorted(set(both_shift['name']) - set('biboy') - set(curr_no_excess['name']))
+    random.shuffle(MT)
+    MT_to_CT = MT[0:CTexcess]
+    shift_count.loc[shift_count.name.isin(MT_to_CT), 'CT'] += 1
+    MT = MT[CTexcess::]
+    shift_count.loc[shift_count.name.isin(MT), 'MT'] += 1
 
 ############################## shift count (excel) #############################                                           
 writer = pd.ExcelWriter('ShiftCount.xlsx')

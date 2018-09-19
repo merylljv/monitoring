@@ -58,6 +58,7 @@ def check_weekdayAM(df):
     return df
 
 def allowed_shift(ts, name, shiftdf):
+    ts = pd.to_datetime(ts)
     tdelta = 0.5
     if pd.to_datetime(ts).time() == time(19, 30):
         tdelta += 0.5
@@ -81,25 +82,6 @@ for MT in div.holidays['IOMP-MT'].values:
 for CT in div.holidays['IOMP-CT'].values:
     shift_count.loc[shift_count.name == CT, 'CT'] -= 1
 
-# check if weekday AM shift and/or salary week (last week and week of 15th)
-shiftdf_grp = shiftdf.groupby('ts', as_index=False)
-shiftdf = shiftdf_grp.apply(check_salary_week).reset_index(drop=True)
-shiftdf_grp = shiftdf.groupby('ts', as_index=False)
-shiftdf = shiftdf_grp.apply(check_weekdayAM).reset_index(drop=True)
-
-# shift of ate amy
-if shift_count[shift_count.name == 'amy']['CT'].values[0] != 0:
-    not_salary_weekdayAM = shiftdf[shiftdf.weekdayAM & ~shiftdf.salary_week & (shiftdf['IOMP-CT'] == '?')]['ts'].values
-    ts = random.choice(not_salary_weekdayAM)
-    shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = 'amy'
-    shift_count.loc[shift_count.name == 'amy', 'CT'] -= 1
-
-# shift of remaining admin
-for admin in shift_count[(shift_count.team == 'admin') & (shift_count.CT != 0)]['name'].values:
-    weekdayAM = shiftdf[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?')]['ts'].values
-    ts = random.choice(weekdayAM)
-    shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = admin
-    shift_count.loc[shift_count.name == admin, 'CT'] -= 1
 
 # shift of people with fieldwork
 fieldwork = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
@@ -112,7 +94,36 @@ field_shifts = fieldwork_id.apply(restrict_shift).drop_duplicates(['ts', 'name']
 
 field_shift_count = Counter(field_shifts.name)
 field_shift_count = pd.DataFrame({'name': field_shift_count.keys(), 'field_shift_count': field_shift_count.values()})
+admin_list = shift_count[(shift_count.team == 'admin')]['name'].values
+field_shift_count = field_shift_count[~field_shift_count.name.isin(admin_list)]
 field_shift_count = field_shift_count.sort_values('field_shift_count', ascending=False)
+
+
+# check if weekday AM shift and/or salary week (last week and week of 15th)
+shiftdf_grp = shiftdf.groupby('ts', as_index=False)
+shiftdf = shiftdf_grp.apply(check_salary_week).reset_index(drop=True)
+shiftdf_grp = shiftdf.groupby('ts', as_index=False)
+shiftdf = shiftdf_grp.apply(check_weekdayAM).reset_index(drop=True)
+
+# shift of ate amy
+if shift_count[shift_count.name == 'amy']['CT'].values[0] != 0:
+    not_salary_weekdayAM = sorted(set(shiftdf[shiftdf.weekdayAM & ~shiftdf.salary_week & (shiftdf['IOMP-CT'] == '?')]['ts']) - set(field_shifts[field_shifts.name == 'amy']['ts']))
+    allowed = False
+    while not allowed:
+        ts = random.choice(not_salary_weekdayAM)
+        allowed = allowed_shift(ts, 'amy', shiftdf)
+    shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = 'amy'
+    shift_count.loc[shift_count.name == 'amy', 'CT'] -= 1
+
+# shift of remaining admin
+for admin in shift_count[(shift_count.team == 'admin') & (shift_count.CT != 0)]['name'].values:
+    weekdayAM = shiftdf[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?')]['ts'].values
+    allowed = False
+    while not allowed:
+        ts = random.choice(weekdayAM)
+        allowed = allowed_shift(ts, admin, shiftdf)
+    shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = admin
+    shift_count.loc[shift_count.name == admin, 'CT'] -= 1
 
 for IOMP in field_shift_count['name'].values:
     for MT in range(shift_count[shift_count.name == IOMP]['MT'].values[0]):
