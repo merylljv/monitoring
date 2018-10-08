@@ -31,6 +31,7 @@ shiftdf['backup'] = '?'
 
 try:
     prev_backup = pd.read_csv('backup.csv')
+    prev_backup['backup'] = prev_backup['backup'].apply(lambda x: x.lower())
 except:
     prev_backup = pd.DataFrame(data=None, columns=['ts', 'backup'])
 dyna_backup = pd.read_csv('dyna_staff.csv', names=['name', 'team'])
@@ -42,15 +43,15 @@ if len(prev_backup) == 0:
     random.shuffle(IOMP)
     IOMP_backup = IOMP[0:num_backup]
 elif len(dyna_backup) >= len(prev_backup) + num_backup:
-    IOMP = sorted(set(dyna_backup['name']) - set(prev_backup['name']))
+    IOMP = sorted(set(dyna_backup['name']) - set(prev_backup['backup']))
     random.shuffle(IOMP)
     IOMP_backup = IOMP[0:num_backup]
 else:
-    curr_no_backup = sorted(set(dyna_backup['name']) - set(prev_backup['name']))
+    curr_no_backup = sorted(set(dyna_backup['name']) - set(prev_backup['backup']))
     IOMP = dyna_backup['name'].values
     random.shuffle(IOMP)
     IOMP_backup = list(IOMP[0:num_backup-len(curr_no_backup)]) + curr_no_backup
-    IOMP_backup.shuffle(IOMP_backup)
+    random.shuffle(IOMP_backup)
     prev_backup = pd.DataFrame(data=None, columns=['ts', 'backup'])
 
 
@@ -83,8 +84,10 @@ if len(fieldwork) != 0:
       
                  
 # shifts of remaining IOMP
+print IOMP_backup
 for IOMP in IOMP_backup:
     ts_list = sorted(shiftdf[shiftdf['backup'] == '?']['ts'])
+    print ts_list
     allowed = False
     while not allowed:
         ts = random.choice(ts_list)
@@ -97,5 +100,5 @@ print shiftdf
 
 ##################################### EXCEL ####################################
 
-prev_backup = prev_backup.append(shiftdf)
-prev_backup.to_csv('backup.csv')
+prev_backup = prev_backup.append(shiftdf)[['backup', 'ts']]
+prev_backup.to_csv('backup.csv', index=False)
