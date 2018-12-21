@@ -35,6 +35,7 @@ try:
 except:
     prev_backup = pd.DataFrame(data=None, columns=['ts', 'backup'])
 dyna_backup = pd.read_csv('dyna_staff.csv', names=['name', 'team'])
+dyna_backup = dyna_backup[dyna_backup.team != 'admin']
 
 num_backup = len(shiftdf)
 

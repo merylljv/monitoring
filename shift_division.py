@@ -53,7 +53,7 @@ MT_min = min([min_shift, int(total_days * 2) / len(both_shift)])
 if MT_min == min_shift:
     both_shift['MT'] = MT_min - both_shift['CT']
 else:
-    both_shift['MT'] = MT_min
+    both_shift['MT'] = MT_min - both_shift['CT']
     remaining_MT = total_days * 2 - (len(both_shift) * MT_min)
     remaining_MT_to_CT = len(both_shift) - remaining_MT
     MT_list = sorted(set(both_shift['name']) - set(both_shift[both_shift.CT != 0]['name']))
@@ -96,19 +96,24 @@ if num_no_excess != len(shift_count) - (len(admin_shift) + len(S1_shift)):
         curr_no_excess2 = curr_no_excess2[['date', 'name']]
         curr_no_excess2.to_csv('no_excess_shift.csv', header=False, index=False)
         curr_no_excess = curr_no_excess.append(curr_no_excess2)
-    shift_count.loc[shift_count.name.isin(set(pureCT_shift['name']) - set(curr_no_excess['name'])), 'CT'] = min_shift + 1
-    shift_count.loc[shift_count.name.isin(set('biboy') - set(curr_no_excess['name'])), 'CT'] += 1
+    CTexcess_pool = sorted(set(pureCT_shift['name']) - set(curr_no_excess['name']))
+    numCTexcess = total_days*2 - sum(shift_count.CT)
+    try:
+        shift_count.loc[shift_count.name.isin(random.sample(CTexcess_pool, numCTexcess)), 'CT'] = min_shift + 1
+    except:
+        shift_count.loc[shift_count.name.isin(random.sample(CTexcess_pool, len(CTexcess_pool))), 'CT'] = min_shift + 1
     CTexcess = total_days * 2 - sum(shift_count['CT'])
-    MT = sorted(set(both_shift['name']) - set('biboy') - set(curr_no_excess['name']))
+    MT = sorted(set(both_shift['name']) - set(curr_no_excess['name']))
     random.shuffle(MT)
     MT_to_CT = MT[0:CTexcess]
     shift_count.loc[shift_count.name.isin(MT_to_CT), 'CT'] += 1
-    MT = MT[CTexcess::]
-    shift_count.loc[shift_count.name.isin(MT), 'MT'] += 1
+    MT = MT[CTexcess:]
+    numMTexcess = total_days*2 - sum(shift_count.MT)
+    shift_count.loc[shift_count.name.isin(random.sample(MT, numMTexcess)), 'MT'] += 1
 
 ############################## shift count (excel) #############################                                           
 writer = pd.ExcelWriter('ShiftCount.xlsx')
-shift_count['team'] = ','.join(shift_count['team'].values).replace('CTS', 'CT').split(',')
+shift_count['team'] = ','.join(shift_count['team'].values).split(',')
 shift_count = shift_count.sort_values(['team', 'name'])
 
 try:

@@ -33,7 +33,7 @@ def check_salary_week(df):
         prev_month = str(int(month) - 1)
     else:
         prev_year = str(int(year) - 1)
-        prev_month = 12
+        prev_month = '12'
         
     prev_end_week = pd.to_datetime(prev_year + '-' + prev_month + '-' + str(monthrange(int(prev_year), int(prev_month))[1]))
     start_prev_end_week = prev_end_week - timedelta(prev_end_week.weekday() + 1)
