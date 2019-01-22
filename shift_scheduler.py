@@ -94,14 +94,12 @@ fieldwork['ts'] = pd.to_datetime(fieldwork['ts'])
 fieldwork = fieldwork[(fieldwork.ts >= datetime.strptime(div.date, '%b%Y')) & (fieldwork.ts <= div.endTS)]
 fieldwork['name'] = fieldwork['name'].apply(lambda x: x.lower())
 fieldwork['id'] = range(len(fieldwork))
+admin_list = shift_count[(shift_count.team == 'admin')]['name'].values
 if len(fieldwork) != 0:
     fieldwork_id = fieldwork.groupby('id', as_index=False)
     field_shifts = fieldwork_id.apply(restrict_shift).drop_duplicates(['ts', 'name']).reset_index(drop=True)
-
     field_shift_count = Counter(field_shifts.name)
     field_shift_count = pd.DataFrame({'name': field_shift_count.keys(), 'field_shift_count': field_shift_count.values()})
-    admin_list = shift_count[(shift_count.team == 'admin')]['name'].values
-    admin_field = field_shifts[field_shifts.name.isin(admin_list)]
     field_shift_count = field_shift_count[~field_shift_count.name.isin(admin_list)]
     field_shift_count = field_shift_count.sort_values('field_shift_count', ascending=False)
 
@@ -113,8 +111,8 @@ shiftdf_grp = shiftdf.groupby('ts', as_index=False)
 shiftdf = shiftdf_grp.apply(check_weekdayAM).reset_index(drop=True)
 
 if len(fieldwork) != 0:
-    admin_field = set(field_shifts[field_shifts.name == 'amy']['ts'])
-    amy_field = set(admin_field[admin_field.name == 'amy'].ts)
+    admin_field = set(field_shifts[field_shifts.name.isin(admin_list)]['ts'])
+    amy_field = set(field_shifts[field_shifts.name == 'amy'].ts)
 else:
     admin_field = set([])
     amy_field = set([])
@@ -200,7 +198,7 @@ shiftdf['IOMP-CT'] = shiftdf['IOMP-CT'].apply(lambda x: x[0].upper()+x[1:len(x)]
 shiftdf['IOMP-MT'] = shiftdf['IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
 shiftdf['IOMP-CT'] = ','.join(shiftdf['IOMP-CT'].values).replace('Tinc', 'TinC').split(',')
 
-#print shiftdf
+print shiftdf
 
 ##################################### EXCEL ####################################
 
