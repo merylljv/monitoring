@@ -71,7 +71,11 @@ def allowed_shift(ts, name, shiftdf):
 shiftTS = pd.date_range(start=div.startTS, end=div.endTS, freq='12H')
 shiftdf = pd.DataFrame({'ts': shiftTS, 'IOMP-MT': ['?']*len(shiftTS), 'IOMP-CT': ['?']*len(shiftTS)})
 
-shift_count = div.shift_count.reset_index(drop=True)
+try:
+    shift_count = div.shift_count.reset_index(drop=True)
+except:
+    allsheet = pd.read_excel('ShiftCount.xlsx', sheetname=None)
+    shift_count = allsheet.get(div.date)
 
 # holiday shifts
 holiday_ts = div.holidays.groupby('ts', as_index=False)
