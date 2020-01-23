@@ -1,0 +1,5 @@
+admin- 4 CT shifts
+
+remaining CT shifts: 2 * number of days in a month - 4
+MT shifts: 2 * number of days in a month
+

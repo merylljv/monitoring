@@ -17,15 +17,15 @@ year = int(input('year (e.g. 2017): '))
 month = int(input('month (1 to 12): '))
 
 total_days = int(monthrange(year, month)[1])
-startTS = pd.to_datetime(str(year) + '-' + str(month) + '-01 07:30')
-endTS = pd.to_datetime(str(year) + '-' + str(month) + '-' + str(total_days) + ' 19:30')
-date = startTS.strftime('%b%Y')
+start_ts = pd.to_datetime(str(year) + '-' + str(month) + '-01 07:30')
+end_ts = pd.to_datetime(str(year) + '-' + str(month) + '-' + str(total_days) + ' 19:30')
+date = start_ts.strftime('%b%Y')
 
 try:
     holidays = pd.read_excel('HolidayShift.xlsx', sheetname=str(year))
     holidays = holidays[['ts', 'IOMP-MT', 'IOMP-CT']]
     holidays['ts'] = pd.to_datetime(holidays['ts'])
-    holidays = holidays[(startTS <= pd.to_datetime(holidays['ts'])) & (pd.to_datetime(holidays['ts']) <= endTS)]
+    holidays = holidays[(start_ts <= pd.to_datetime(holidays['ts'])) & (pd.to_datetime(holidays['ts']) <= end_ts)]
 except:
     holidays = pd.DataFrame(data=None, columns=['ts', 'IOMP-MT', 'IOMP-CT'])
 holidays['IOMP-CT'] = holidays['IOMP-CT'].apply(lambda x: x.lower())

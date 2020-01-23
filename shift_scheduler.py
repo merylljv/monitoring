@@ -18,7 +18,7 @@ def restrict_shift(fieldwork):
 def holiday_shift(holidays, shiftdf):
     IOMP = ['IOMP-MT', 'IOMP-CT']
     ts = holidays['ts'].values[0]
-    shiftdf.loc[shiftdf.ts == ts, IOMP] = holidays[div.holidays.ts == ts][IOMP].values
+    shiftdf.loc[shiftdf.ts == ts, IOMP] = holidays.loc[holidays.ts == ts, IOMP].values[0]
 
 def check_salary_week(df):
     ts = pd.to_datetime(df['ts'].values[0])
@@ -48,13 +48,13 @@ def check_salary_week(df):
         start_monthsend_week <= ts <= end_monthsend_week or \
         prev_end_week <= ts <= end_prev_end_week
     
-    df['salary_week'] = salary_week
+    df.loc[:, 'salary_week'] = salary_week
     
     return df
 
 def check_weekdayAM(df):
     weekdayAM = pd.to_datetime(df['ts'].values[0]).isocalendar()[2] in range(1, 6) and pd.to_datetime(df['ts'].values[0]).time() == time(7, 30)
-    df['weekdayAM'] = weekdayAM
+    df.loc[:, 'weekdayAM'] = weekdayAM
     return df
 
 def allowed_shift(ts, name, shiftdf):
@@ -62,8 +62,8 @@ def allowed_shift(ts, name, shiftdf):
     tdelta = 0.5
     if pd.to_datetime(ts).time() == time(19, 30):
         tdelta += 0.5
-    not_allowed = np.concatenate(shiftdf[(shiftdf.ts >= ts - timedelta(tdelta)) & \
-                           (shiftdf.ts <= ts + timedelta(tdelta))][['IOMP-CT', 'IOMP-MT']].values)
+    not_allowed = np.concatenate(shiftdf.loc[(shiftdf.ts >= ts - timedelta(tdelta)) & \
+                           (shiftdf.ts <= ts + timedelta(tdelta)), ['IOMP-CT', 'IOMP-MT']].values)
     return name not in not_allowed
 
 
@@ -90,17 +90,17 @@ for CT in div.holidays['IOMP-CT'].values:
 
 # shift of people with fieldwork
 fieldwork = pd.read_csv('Monitoring Shift Schedule - fieldwork.csv')
-fieldwork['ts'] = pd.to_datetime(fieldwork['ts'])
-fieldwork = fieldwork[(fieldwork.ts >= datetime.strptime(div.date, '%b%Y')) & (fieldwork.ts <= div.endTS)]
-fieldwork['name'] = fieldwork['name'].apply(lambda x: x.lower())
-fieldwork['id'] = range(len(fieldwork))
-admin_list = shift_count[(shift_count.team == 'admin')]['name'].values
+fieldwork.loc[:, 'ts'] = pd.to_datetime(fieldwork.loc[:, 'ts'])
+fieldwork = fieldwork.loc[(fieldwork.ts >= datetime.strptime(div.date, '%b%Y')) & (fieldwork.ts <= div.endTS), :]
+fieldwork.loc[:, 'name'] = fieldwork['name'].apply(lambda x: x.lower())
+fieldwork.loc[:, 'id'] = range(len(fieldwork))
+admin_list = shift_count.loc[(shift_count.team == 'admin'), 'name'].values
 if len(fieldwork) != 0:
     fieldwork_id = fieldwork.groupby('id', as_index=False)
     field_shifts = fieldwork_id.apply(restrict_shift).drop_duplicates(['ts', 'name']).reset_index(drop=True)
-    field_shift_count = Counter(field_shifts.name)
-    field_shift_count = pd.DataFrame({'name': field_shift_count.keys(), 'field_shift_count': field_shift_count.values()})
-    field_shift_count = field_shift_count[~field_shift_count.name.isin(admin_list)]
+    field_shift_count = Counter(field_shifts.loc[:, 'name'].values)
+    field_shift_count = pd.DataFrame(field_shift_count.items(), columns=['name', 'field_shift_count'])
+    field_shift_count = field_shift_count.loc[~field_shift_count.name.isin(admin_list), :]
     field_shift_count = field_shift_count.sort_values('field_shift_count', ascending=False)
 
 
@@ -111,15 +111,15 @@ shiftdf_grp = shiftdf.groupby('ts', as_index=False)
 shiftdf = shiftdf_grp.apply(check_weekdayAM).reset_index(drop=True)
 
 if len(fieldwork) != 0:
-    admin_field = set(field_shifts[field_shifts.name.isin(admin_list)]['ts'])
-    amy_field = set(field_shifts[field_shifts.name == 'amy'].ts)
+    admin_field = set(field_shifts.loc[field_shifts.name.isin(admin_list), 'ts'])
+    amy_field = set(field_shifts.loc[field_shifts.name == 'amy', 'ts'])
 else:
     admin_field = set([])
     amy_field = set([])
 
 # shift of ate amy
-if shift_count[shift_count.name == 'amy']['CT'].values[0] != 0:
-    not_salary_weekdayAM = sorted(set(shiftdf[shiftdf.weekdayAM & ~shiftdf.salary_week & (shiftdf['IOMP-CT'] == '?')]['ts']) - admin_field)
+if shift_count.loc[shift_count.name == 'amy', 'CT'].values[0] != 0:
+    not_salary_weekdayAM = sorted(set(shiftdf.loc[shiftdf.weekdayAM & ~shiftdf.salary_week & (shiftdf['IOMP-CT'] == '?'), 'ts']) - admin_field)
     not_salary_weekdayAM = sorted(set(map(pd.to_datetime, not_salary_weekdayAM)) - amy_field)
     allowed = False
     while not allowed:
@@ -129,8 +129,8 @@ if shift_count[shift_count.name == 'amy']['CT'].values[0] != 0:
     shift_count.loc[shift_count.name == 'amy', 'CT'] -= 1
 
 # shift of remaining admin
-for admin in shift_count[(shift_count.team == 'admin') & (shift_count.CT != 0)]['name'].values:
-    weekdayAM = shiftdf[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?')]['ts'].values        
+for admin in shift_count.loc[(shift_count.team == 'admin') & (shift_count.CT != 0), 'name'].values:
+    weekdayAM = shiftdf.loc[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?'), 'ts'].values        
     weekdayAM = sorted(set(map(pd.to_datetime, weekdayAM)) - admin_field)
     allowed = False
     while not allowed:
@@ -142,16 +142,16 @@ for admin in shift_count[(shift_count.team == 'admin') & (shift_count.CT != 0)][
 # shift of with fieldwork
 if len(fieldwork) != 0:
     for IOMP in field_shift_count['name'].values:
-        for MT in range(shift_count[shift_count.name == IOMP]['MT'].values[0]):
-            ts_list = sorted(set(shiftdf[shiftdf['IOMP-MT'] == '?']['ts']) - set(field_shifts[field_shifts.name == IOMP]['ts']))
+        for MT in range(shift_count.loc[shift_count.name == IOMP, 'MT'].values[0]):
+            ts_list = sorted(set(shiftdf.loc[shiftdf['IOMP-MT'] == '?', 'ts']) - set(field_shifts.loc[field_shifts.name == IOMP, 'ts']))
             allowed = False
             while not allowed:
                 ts = random.choice(ts_list)
                 allowed = allowed_shift(ts, IOMP, shiftdf)
             shiftdf.loc[shiftdf.ts == ts, 'IOMP-MT'] = IOMP
             shift_count.loc[shift_count.name == IOMP, 'MT'] -= 1
-        for CT in range(shift_count[shift_count.name == IOMP]['CT'].values[0]):
-            ts_list = sorted(set(shiftdf[shiftdf['IOMP-CT'] == '?']['ts']) - set(field_shifts[field_shifts.name == IOMP]['ts']))
+        for CT in range(shift_count.loc[shift_count.name == IOMP, 'CT'].values[0]):
+            ts_list = sorted(set(shiftdf.loc[shiftdf['IOMP-CT'] == '?', 'ts']) - set(field_shifts.loc[field_shifts.name == IOMP, 'ts']))
             allowed = False
             while not allowed:
                 ts = random.choice(ts_list)
@@ -163,13 +163,13 @@ if len(fieldwork) != 0:
 
 #remaining MT
 remaining_MT = []
-for IOMP in sorted(set(shift_count[shift_count.MT != 0].name)):
-    remaining_MT += [IOMP]*shift_count[shift_count.name == IOMP]['MT'].values[0]
+for IOMP in sorted(set(shift_count.loc[shift_count.MT != 0, 'name'].values)):
+    remaining_MT += [IOMP]*shift_count.loc[shift_count.name == IOMP, 'MT'].values[0]
 
 random.shuffle(remaining_MT)
 
 for IOMP in remaining_MT:
-    ts_list = sorted(shiftdf[shiftdf['IOMP-MT'] == '?']['ts'])
+    ts_list = sorted(shiftdf.loc[shiftdf['IOMP-MT'] == '?', 'ts'])
     allowed = False
     while not allowed:
         ts = random.choice(ts_list)
@@ -179,13 +179,13 @@ for IOMP in remaining_MT:
 
 #remaining CT
 remaining_CT = []
-for IOMP in sorted(set(shift_count[shift_count.CT != 0].name)):
-    remaining_CT += [IOMP]*shift_count[shift_count.name == IOMP]['CT'].values[0]
+for IOMP in sorted(set(shift_count.loc[shift_count.CT != 0, 'name'].values)):
+    remaining_CT += [IOMP]*shift_count.loc[shift_count.name == IOMP, 'CT'].values[0]
 
 random.shuffle(remaining_CT)
 
 for IOMP in remaining_CT:
-    ts_list = sorted(shiftdf[shiftdf['IOMP-CT'] == '?']['ts'])
+    ts_list = sorted(shiftdf.loc[shiftdf['IOMP-CT'] == '?', 'ts'])
     allowed = False
     while not allowed:
         ts = random.choice(ts_list)
@@ -193,12 +193,12 @@ for IOMP in remaining_CT:
     shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = IOMP
     shift_count.loc[shift_count.name == IOMP, 'CT'] -= 1
                    
-shiftdf = shiftdf[['ts', 'IOMP-MT', 'IOMP-CT']]
-shiftdf['IOMP-CT'] = shiftdf['IOMP-CT'].apply(lambda x: x[0].upper()+x[1:len(x)])
-shiftdf['IOMP-MT'] = shiftdf['IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
-shiftdf['IOMP-CT'] = ','.join(shiftdf['IOMP-CT'].values).replace('Tinc', 'TinC').split(',')
+shiftdf = shiftdf.loc[:, ['ts', 'IOMP-MT', 'IOMP-CT']]
+shiftdf.loc[:, 'IOMP-CT'] = shiftdf.loc[:, 'IOMP-CT'].apply(lambda x: x[0].upper()+x[1:len(x)])
+shiftdf.loc[:, 'IOMP-MT'] = shiftdf.loc[:, 'IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
+shiftdf.loc[:, 'IOMP-CT'] = ','.join(shiftdf.loc[:, 'IOMP-CT'].values).replace('Tinc', 'TinC').split(',')
 
-print shiftdf
+print(shiftdf)
 
 ##################################### EXCEL ####################################
 
@@ -211,6 +211,4 @@ except:
 for sheetname, xlsxdf in allsheet.items():
     xlsxdf.to_excel(writer, sheetname, index=False)
     worksheet = writer.sheets[sheetname]
-    #adjust column width
-    worksheet.set_column('A:A', 20)
 writer.save()
