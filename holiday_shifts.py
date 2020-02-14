@@ -11,9 +11,12 @@ multiplied by:
 """
 
 from datetime import time, timedelta
+from calendar import monthrange
+
+import math
 import pandas as pd
 import random
-from calendar import monthrange
+
 
 def check_salary_week(df):
     ts = pd.to_datetime(df['ts'].values[0])
@@ -88,7 +91,7 @@ holiday_shifts = holiday_grp.apply(check_salary_week).reset_index(drop=True)
 holiday_shifts['IOMP-MT'] = '?'
 holiday_shifts['IOMP-CT'] = '?'
 
-shift_each = (len(holiday_shifts) * 2) / len(staff)
+shift_each = math.floor((len(holiday_shifts) * 2) / len(staff))
 
 # assign shifts for ate amy:
 not_salary_weekdayAM = holiday_shifts[holiday_shifts.weekdayAM & ~holiday_shifts.salary_week]['ts'].values
@@ -106,23 +109,23 @@ for admin_i in admin:
     weekdayAM_shift.remove(ts)
     holiday_shifts.loc[holiday_shifts.ts == ts, 'IOMP-CT'] = admin_i
 
-total_admin = len(holiday_shifts[holiday_shifts['IOMP-CT'] != '?']) / shift_each
+total_admin = math.floor(len(holiday_shifts[holiday_shifts['IOMP-CT'] != '?']) / shift_each)
 
 total_MTshift = len(holiday_shifts)
 total_CTshift = len(holiday_shifts) - total_admin * shift_each
 
-MT_shift = IOMP_MT[(len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 ::]
-CT_shift = IOMP_CT + IOMP_MT[0 : (len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2]
-IOMP_MT = IOMP_MT[(len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 ::] + IOMP_MT[0 : (len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2]
+MT_shift = IOMP_MT[math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) ::]
+CT_shift = IOMP_CT + IOMP_MT[0 : math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2)]
+IOMP_MT = IOMP_MT[math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) ::] + IOMP_MT[0 : math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2)]
 
 while len(IOMP_MT) + len(IOMP_CT) < (total_MTshift + total_CTshift) - (len(MT_shift) + len(CT_shift)):
     if len(IOMP_CT) + total_admin != len(IOMP_MT):
         add = 1
     else:
         add = 0
-    MT_shift += IOMP_MT[(len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 + add ::]
-    CT_shift += IOMP_CT + IOMP_MT[0 : (len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 + add]
-    IOMP_MT = IOMP_MT[(len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 + add ::] + IOMP_MT[0 : (len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2 + add]
+    MT_shift += IOMP_MT[math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) + add ::]
+    CT_shift += IOMP_CT + IOMP_MT[0 : math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) + add]
+    IOMP_MT = IOMP_MT[math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) + add ::] + IOMP_MT[0 : math.floor((len(IOMP_MT) - (len(IOMP_CT) + total_admin))/2) + add]
 
 if (total_MTshift + total_CTshift) - (len(MT_shift) + len(CT_shift)) > 0:
     if len(IOMP_CT) > total_CTshift - len(CT_shift):
@@ -143,19 +146,17 @@ holiday_shifts['IOMP-CT'] = holiday_shifts['IOMP-CT'].apply(lambda x: x[0].upper
 holiday_shifts['IOMP-MT'] = holiday_shifts['IOMP-MT'].apply(lambda x: x[0].upper()+x[1:len(x)])
 holiday_shifts['IOMP-CT'] = ','.join(holiday_shifts['IOMP-CT'].values).replace('Tinc', 'TinC').split(',')
 
-print holiday_shifts
+print (holiday_shifts)
 
 year = pd.to_datetime(holiday_shifts['ts'].values[0]).strftime('%Y')
               
 writer = pd.ExcelWriter('HolidayShift.xlsx')
 try:
-    allsheet = pd.read_excel('HolidayShift.xlsx', sheetname=None)
+    allsheet = pd.read_excel('HolidayShift.xlsx', sheet_name=None)
     allsheet[year] = holiday_shifts
 except:
     allsheet = {year: holiday_shifts}
 for sheetname, xlsxdf in allsheet.items():
     xlsxdf.to_excel(writer, sheetname, index=False)
     worksheet = writer.sheets[sheetname]
-    #adjust column width
-    worksheet.set_column('A:A', 20)
 writer.save()
