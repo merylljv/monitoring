@@ -66,6 +66,7 @@ def get_shift_count(year, month, key):
     total_shift.loc[total_shift.new == 1, 'IOMP-MT'] = total_shift.loc[total_shift.new == 1, 'IOMP-MT'] + 2
     total_shift.loc[total_shift.new == 1, 'IOMP-CT'] = total_shift.loc[total_shift.new == 1, 'IOMP-CT'] + 2
     total_shift.loc[:, 'total'] = total_shift['IOMP-MT'] + total_shift['IOMP-CT']
+    total_shift = total_shift.loc[total_shift.current == 1, :]
     total_shift = total_shift.loc[:, ['team', 'IOMP-MT', 'IOMP-CT', 'total']]
     return total_shift.sort_index()
 
@@ -220,9 +221,8 @@ def allowed_shift(ts, name, shiftdf):
     return name not in not_allowed
 
 ########################
-
-def schedule(key):
-    
+def schedule(key, recompute=False):
+        
     year = int(input('year (e.g. 2017): '))
     month = int(input('month (1 to 12): '))
     
@@ -239,7 +239,8 @@ def schedule(key):
     
     prev_shift = get_shift(key, prev_start.strftime('%B %Y'))
     
-    shift_count = shift_divider(key, year, month, next_start, shift_name, recompute=True)
+    shift_count = shift_divider(key, year, month, next_start, shift_name,
+                                recompute=recompute)
     admin_list = list(shift_count.loc[shift_count.team == 'admin', :].index)
             
     #Empty Shift Schedule
@@ -382,4 +383,4 @@ def schedule(key):
     
 if __name__ == "__main__":
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
-    schedule()
+    schedule(key)
