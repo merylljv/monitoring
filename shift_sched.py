@@ -296,7 +296,7 @@ def schedule(key, recompute=False):
         while not allowed:
             ts = random.choice(not_salary_weekdayAM)
             allowed = allowed_shift(ts, 'Amy', shiftdf)
-        shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = 'amy'
+        shiftdf.loc[shiftdf.ts == ts, 'IOMP-CT'] = 'Amy'
         shift_count.loc[shift_count.name == 'Amy', 'IOMP-CT'] -= 1
     
     # shift of remaining admin
