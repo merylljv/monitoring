@@ -394,7 +394,7 @@ if __name__ == "__main__":
     recompute = False
     
     year = 2020
-    month = 6
+    month = 7
     
     curr_start = pd.to_datetime(date(year, month, 1)) + timedelta(hours=7.5)
     shift_name = curr_start.strftime('%b%Y')
@@ -544,12 +544,35 @@ if __name__ == "__main__":
     
     print(shiftdf)
     
-    writer = pd.ExcelWriter('MonitoringShift.xlsx')
-    try:
-        allsheet = pd.read_excel('MonitoringShift.xlsx', sheet_name=None)
-        allsheet[shift_name] = shiftdf
-    except:
-        allsheet = {shift_name: shiftdf}
-    for sheet_name, xlsxdf in allsheet.items():
-        xlsxdf.to_excel(writer, sheet_name, index=False)
-    writer.save()
+#    writer = pd.ExcelWriter('MonitoringShift.xlsx')
+#    try:
+#        allsheet = pd.read_excel('MonitoringShift.xlsx', sheet_name=None)
+#        allsheet[shift_name] = shiftdf
+#    except:
+#        allsheet = {shift_name: shiftdf}
+#    for sheet_name, xlsxdf in allsheet.items():
+#        xlsxdf.to_excel(writer, sheet_name, index=False)
+#    writer.save()
+    
+    
+    
+    
+    
+    
+##############################
+#    
+#shiftdf = pd.read_csv('temp_sched.csv')
+#name_list = set(list(shiftdf["IOMP-MT"].values) + list(shiftdf["IOMP-CT"].values))
+#for name in sorted(name_list):
+#    print(name)
+#    for ts in shiftdf.loc[(shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name), 'ts'].values:
+#        if ts in fieldwork.loc[fieldwork.name == name, 'ts'].values:
+#            print(ts, name)
+#            print(fieldwork.loc[fieldwork.name == name, :].sort_values('ts')['ts'])
+#            
+##############################
+#            
+#name_list = ['Nora', 'Nichole', 'Kate', 'Tina', 'Kevin', 'Eunice', 'Harry', 'Daisy', 'Amy', 'Tintin', 'Jhoanne']
+#for name in name_list:
+#    print(name)
+#    print(shiftdf.loc[(shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name), :])
