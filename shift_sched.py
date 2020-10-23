@@ -50,7 +50,7 @@ def get_field(key, start, end):
     return df.reset_index(drop=True)
 
 
-def get_shift_count(year, month, key):
+def get_shift_count(year, month, key, backup=2):
     df = pd.DataFrame()
     for i in range(1, month):
         ts = pd.to_datetime(date(year, i, 1)).strftime('%b%Y')
@@ -62,11 +62,15 @@ def get_shift_count(year, month, key):
     name = name.rename(columns={'Nickname': 'name'})
     name = name.set_index('name')
     total_shift = pd.merge(df, name, right_index=True, left_index=True, validate='one_to_one', how='right')
-    total_shift = total_shift.fillna(0)
-    total_shift.loc[total_shift.new == 1, 'IOMP-MT'] = total_shift.loc[total_shift.new == 1, 'IOMP-MT'] + 2
-    total_shift.loc[total_shift.new == 1, 'IOMP-CT'] = total_shift.loc[total_shift.new == 1, 'IOMP-CT'] + 2
-    total_shift.loc[:, 'total'] = total_shift['IOMP-MT'] + total_shift['IOMP-CT']
     total_shift = total_shift.loc[total_shift.current == 1, :]
+    total_shift = total_shift.fillna(0)
+#    equal shift
+    admin = len(total_shift.loc[total_shift.team == 'admin', :])
+    eq_shift = ((4*pd.to_datetime('{}-12-31'.format(year)).dayofyear-12*admin)/(len(total_shift)-admin)+backup)/24
+    # offset new
+    total_shift.loc[:, 'IOMP-MT'] = total_shift.loc[:, 'IOMP-MT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
+    total_shift.loc[:, 'IOMP-CT'] = total_shift.loc[:, 'IOMP-CT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
+    total_shift.loc[:, 'total'] = total_shift['IOMP-MT'] + total_shift['IOMP-CT']
     total_shift = total_shift.loc[:, ['team', 'IOMP-MT', 'IOMP-CT', 'total']]
     return total_shift.sort_index()
 
@@ -397,7 +401,7 @@ if __name__ == "__main__":
     recompute = False
     
     year = 2020
-    month = 9
+    month = 11
     
     curr_start = pd.to_datetime(date(year, month, 1)) + timedelta(hours=7.5)
     shift_name = curr_start.strftime('%b%Y')
