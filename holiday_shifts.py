@@ -17,6 +17,8 @@ import math
 import pandas as pd
 import random
 
+import shift_sched as sched
+
 
 def check_salary_week(df):
     ts = pd.to_datetime(df['ts'].values[0])
@@ -63,8 +65,10 @@ def shifts(holiday):
 
 # imports ts of holidays and name & team of dynaslope staff
 holidays = pd.read_csv('holidays.csv', names=['ts'])
-staff = pd.read_csv('dyna_staff.csv', names=['name', 'team'])
 
+personnel_sheet = "personnel"
+name = sched.get_sheet(key, personnel_sheet)
+    
 # admin
 admin = sorted(staff[staff.team == 'admin']['name'].values)
 random.shuffle(admin)

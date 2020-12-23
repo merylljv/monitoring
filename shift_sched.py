@@ -32,7 +32,7 @@ def get_shift(key, sheet_name):
     df = df.drop([col for col in df.columns if col.startswith('Unnamed')], axis=1)
     df.loc[:, 'Date'] = pd.to_datetime(df.loc[:, 'Date'].ffill())
     df.loc[:, 'Shift'] = pd.to_timedelta(df.loc[:, 'Shift'].map({'AM': timedelta(hours=7.5), 'PM': timedelta(hours=19.5)}))
-    df.loc[:, 'ts'] = pd.to_datetime(df.loc[:, 'Date'] + df.loc[:, 'Shift'])
+    df.loc[:, 'ts'] = pd.to_datetime(df.loc[:, 'Date'] + df.loc [:, 'Shift'])
     return df.loc[:, ['ts', 'IOMP-MT', 'IOMP-CT']]
 
 
@@ -401,7 +401,7 @@ if __name__ == "__main__":
     recompute = False
     
     year = 2020
-    month = 11
+    month = 12
     
     curr_start = pd.to_datetime(date(year, month, 1)) + timedelta(hours=7.5)
     shift_name = curr_start.strftime('%b%Y')
@@ -575,6 +575,7 @@ if __name__ == "__main__":
 #shiftdf.to_csv('temp_sched.csv', index=False)
 shiftdf = pd.read_csv('temp_sched.csv')
 shiftdf.loc[:, 'ts'] = shiftdf.loc[:, 'ts'].apply(lambda x: pd.to_datetime(x))
+shiftdf = shiftdf.loc[shiftdf.ts >= '2020-11-01', :]
 name_list = set(list(shiftdf["IOMP-MT"].values) + list(shiftdf["IOMP-CT"].values))
 for name in sorted(name_list):
     print(name)
@@ -593,7 +594,7 @@ for name in sorted(name_list):
 #            
 ##############################
 #            
-#name_list = ['Dan', 'Meryll']
+#name_list = ['James', 'Tine', 'Nichole']
 #print('remaining shifts\n', shiftdf.loc[(shiftdf['IOMP-MT'] == '?') | (shiftdf['IOMP-CT'] == '?'), :])
 #for ts in shiftdf.loc[(shiftdf['IOMP-MT'] == '?') | (shiftdf['IOMP-CT'] == '?'), 'ts'].values:
 #    print('remaining shift:', ts)
