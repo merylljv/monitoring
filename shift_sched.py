@@ -68,6 +68,9 @@ def get_shift_count(year, month, key, backup=2):
     admin = len(total_shift.loc[total_shift.team == 'admin', :])
     eq_shift = ((4*pd.to_datetime('{}-12-31'.format(year)).dayofyear-12*admin)/(len(total_shift)-admin)+backup)/24
     # offset new
+    if month == 1:
+        total_shift.loc[:, 'IOMP-MT'] = np.nan
+        total_shift.loc[:, 'IOMP-CT'] = np.nan
     total_shift.loc[:, 'IOMP-MT'] = total_shift.loc[:, 'IOMP-MT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
     total_shift.loc[:, 'IOMP-CT'] = total_shift.loc[:, 'IOMP-CT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
     total_shift.loc[:, 'total'] = total_shift['IOMP-MT'] + total_shift['IOMP-CT']
@@ -400,8 +403,8 @@ if __name__ == "__main__":
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
     recompute = False
     
-    year = 2020
-    month = 12
+    year = 2021
+    month = 2
     
     curr_start = pd.to_datetime(date(year, month, 1)) + timedelta(hours=7.5)
     shift_name = curr_start.strftime('%b%Y')
@@ -467,7 +470,7 @@ if __name__ == "__main__":
     
     # shift of ate amy
     if shift_count.loc[shift_count.name == 'Amy', 'IOMP-CT'].values[0] != 0:
-        not_salary_weekdayAM = sorted(set(shiftdf.loc[shiftdf.weekdayAM & ~shiftdf.salary_week & (shiftdf['IOMP-CT'] == '?'), 'ts']) - admin_field)
+        not_salary_weekdayAM = sorted(set(shiftdf.loc[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?'), 'ts']) - amy_field)
         not_salary_weekdayAM = sorted(set(map(pd.to_datetime, not_salary_weekdayAM)) - amy_field)
         allowed = False
         while not allowed:
@@ -481,6 +484,7 @@ if __name__ == "__main__":
         print('admin:', admin)
         weekdayAM = shiftdf.loc[shiftdf.weekdayAM & (shiftdf['IOMP-CT'] == '?'), 'ts'].values  
         print('ts\n', weekdayAM)
+        admin_field = set(fieldwork.loc[fieldwork.name == 'admin', 'ts'])
         weekdayAM = sorted(set(map(pd.to_datetime, weekdayAM)) - admin_field)
         print('field\n', admin_field)
         print('ts\n', weekdayAM)

@@ -13,7 +13,7 @@ fieldwork = pd.DataFrame()
 
 for col in (set(sched.columns) - set(["name"])):
     names = sched.loc[sched[col].isin(["K", "L"]), "name"]
-    ts = "12/{}/2020".format(col)
+    ts = "02/{}/2021".format(col)
     fieldwork = fieldwork.append(pd.DataFrame({"name": names,
                                                "ts": [ts]*len(names)}),
                                 ignore_index=True)
