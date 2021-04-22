@@ -1,176 +1,141 @@
 """
-with the assumption that personnel who can take CT shifts only
-is less than personnel who can take both MT and CT shifts
-
-works only if list of number of holiday shifts (2 * 3 * number of holidays)
-is greater than total number of monitoring personnel
-
-multiplied by:
-2 for CT and MT
-3 for PM shift before the holiday, AM and PM shift on holiday 
+with the assumption that the number of holiday shifts is greater than 
+the total number of monitoring personnel, and minimum shift count is 2. 
+(e.g for year with 54 holiday shifts, should have 37-54 monitoring personnel)
 """
 
 from datetime import time, timedelta
-from calendar import monthrange
-from collections import Counter
 
-import math
+import numpy as np
 import pandas as pd
 import random
 
 import shift_sched as sched
 
 
-def check_salary_week(df):
-    ts = pd.to_datetime(df['ts'].values[0])
-    year = ts.strftime('%Y')
-    month = ts.strftime('%m')
-    
-    months15th = pd.to_datetime(year + '-' + month + '-15')
-    start_15thweek = months15th - timedelta(months15th.weekday() + 1)
-    end_15thweek = start_15thweek + timedelta(7)
-
-    monthsend = pd.to_datetime(year + '-' + month + '-' + str(monthrange(int(year), int(month))[1]))
-    start_monthsend_week = monthsend - timedelta(monthsend.weekday() + 1)
-    end_monthsend_week = start_monthsend_week + timedelta(7)
-
-    if int(month) != 1:
-        prev_year = year
-        prev_month = str(int(month) - 1)
-    else:
-        prev_year = str(int(year) - 1)
-        prev_month = '12'
-        
-    prev_end_week = pd.to_datetime(prev_year + '-' + prev_month + '-' + str(monthrange(int(prev_year), int(prev_month))[1]))
-    start_prev_end_week = prev_end_week - timedelta(prev_end_week.weekday() + 1)
-    end_prev_end_week = start_prev_end_week + timedelta(7)
-
-    salary_week = start_15thweek <= ts <= end_15thweek or \
-        start_monthsend_week <= ts <= end_monthsend_week or \
-        prev_end_week <= ts <= end_prev_end_week
-    
-    df['salary_week'] = salary_week
-    
-    return df
-
-def check_weekdayAM(df):
-    weekdayAM = pd.to_datetime(df['ts'].values[0]).isocalendar()[2] in range(1, 6) and pd.to_datetime(df['ts'].values[0]).time() == time(7, 30)
-    df['weekdayAM'] = weekdayAM
-    return df
-
-def shifts(holiday):
+def get_holiday_shifts(holiday):
     ts = pd.to_datetime(holiday['ts'].values[0]) + timedelta(hours=7.5)
     ts_list = [ts-timedelta(0.5), ts, ts+timedelta(0.5)]
     df = pd.DataFrame({'ts': ts_list})
     return df
 
-def main():
-    # imports ts of holidays and name & team of dynaslope staff
-    holidays = pd.read_csv('holidays.csv', names=['ts'])
+
+def shift_divider(shift_list, IOMP, admin_list):
+    min_shift = int(np.floor(2 * len(shift_list) / len(IOMP)))
+    shift_count = pd.DataFrame(index = IOMP['Nickname'].values, columns=['IOMP-MT', 'IOMP-CT']).rename_axis('name')
+    # admin
+    shift_count.loc[shift_count.index.isin(admin_list), 'IOMP-CT'] = min_shift
+    # non-admin
+    non_admin_list = sorted(set(IOMP['Nickname']) - set(admin_list))
+    MT_count = len(shift_list)
+    CT_count = len(shift_list) - min_shift * len(admin_list)
+    # at least 1 MT shift for non-admin
+    shift_count.loc[shift_count.index.isin(non_admin_list), 'IOMP-MT'] = 1
+    MT_count -= len(non_admin_list)
+    random.shuffle(non_admin_list)
+    if CT_count > len(non_admin_list):
+        shift_count.loc[shift_count.index.isin(non_admin_list), 'IOMP-CT'] = 1
+        CT_count -= len(non_admin_list)
+        shift_count.loc[shift_count.index.isin(non_admin_list[:CT_count]), 'IOMP-CT'] += 1
+        shift_count.loc[shift_count.index.isin(non_admin_list[CT_count:CT_count+MT_count]), 'IOMP-CT'] += 1
+    else:
+        shift_count.loc[shift_count.index.isin(non_admin_list[len(non_admin_list)-CT_count:]), 'IOMP-CT'] = 1
+        shift_count.loc[shift_count.index.isin(non_admin_list[:MT_count]), 'IOMP-MT'] += 1
+    shift_count = shift_count.fillna(0).reset_index()
     
+    return shift_count
+
+
+def assign_remaining_IOMP(shiftdf, shift_count):
+    # unassigned IOMPs
+    extra_CT = shift_count.loc[(shift_count['IOMP-CT'] == 2), 'name'].values
+    extra_MT = shift_count.loc[(shift_count['IOMP-MT'] == 2), 'name'].values
+    other_IOMP = sorted(set(shift_count.loc[((shift_count['IOMP-MT'] != 0) & (shift_count['IOMP-CT'] != 0)), 'name'].values) - set(extra_CT) - set(extra_MT))
+    # randomize
+    random.shuffle(extra_MT)
+    random.shuffle(extra_CT)
+    random.shuffle(other_IOMP)
+    
+    # shifts with unassigned IOMP
+    MT_shift = shiftdf.loc[shiftdf['IOMP-MT'] == '?', 'ts'].values
+    CT_shift = shiftdf.loc[shiftdf['IOMP-CT'] == '?', 'ts'].values
+    
+    # assign remaining shifts
+    remaining_IOMP = list(extra_MT) + list(extra_CT) + list(other_IOMP)
+    MT = remaining_IOMP[::2]
+    temp_MT_shift = MT_shift[0:len(MT)]
+    MT_shift = sorted(set(MT_shift) - set(temp_MT_shift))
+    shiftdf.loc[shiftdf.ts.isin(temp_MT_shift), 'IOMP-MT'] = MT
+    CT = remaining_IOMP[1::2]
+    temp_CT_shift = CT_shift[0:len(CT)]
+    CT_shift = sorted(set(CT_shift) - set(temp_CT_shift))
+    shiftdf.loc[shiftdf.ts.isin(temp_CT_shift), 'IOMP-CT'] = CT
+    
+    # assign extra shifts
+    temp_MT_shift = MT_shift[0:len(extra_MT)]
+    MT_shift = sorted(set(MT_shift) - set(temp_MT_shift))
+    shiftdf.loc[shiftdf.ts.isin(temp_MT_shift), 'IOMP-MT'] = extra_MT
+    temp_CT_shift = CT_shift[0:len(extra_CT)]
+    CT_shift = sorted(set(CT_shift) - set(temp_CT_shift))
+    shiftdf.loc[shiftdf.ts.isin(temp_CT_shift), 'IOMP-CT'] = extra_CT    
+    
+    # assign remaining flipped shifts
+    remaining_IOMP = list(other_IOMP) + list(extra_MT) + list(extra_CT)
+    MT = remaining_IOMP[1::2]
+    shiftdf.loc[shiftdf.ts.isin(MT_shift), 'IOMP-MT'] = MT
+    CT = remaining_IOMP[::2]
+    shiftdf.loc[shiftdf.ts.isin(CT_shift), 'IOMP-CT'] = CT
+    
+    return shiftdf
+
+def main():
+    holidays = pd.read_csv('holidays.csv', names=['ts'])
+    holiday_grp = holidays.groupby('ts', as_index=False)
+    shift_list = holiday_grp.apply(get_holiday_shifts).reset_index(drop=True)
+    start_date = pd.to_datetime(min(holidays['ts'].values))
+    end_date = pd.to_datetime(max(holidays['ts'].values))
+    if int(start_date.strftime('%d')) == 1:
+        shift_list = shift_list[shift_list.ts >= start_date]
+    shift_list = shift_list.drop_duplicates('ts')
+    shiftdf = shift_list.reset_index(drop=True)
+    shiftdf.loc[:, 'IOMP-MT'] = '?'
+    shiftdf.loc[:, 'IOMP-CT'] = '?'
+
+    # IOMPs    
     personnel_sheet = "personnel"
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
-    staff = sched.get_sheet(key, personnel_sheet)
-    staff = staff.loc[staff.current == 1, :]
-        
-    # admin
-    admin = sorted(staff[staff.team == 'admin']['Nickname'].values)
-    random.shuffle(admin)
-    # randomize CT shifts
-    IOMP_CT = sorted(staff[staff.team.isin(['CT', 'S1'])]['Nickname'].values)
-    random.shuffle(IOMP_CT)
-    # randomize CT shifts
-    IOMP_MT = sorted(staff[~staff.team.isin(['CT', 'S1', 'admin'])]['Nickname'].values)
-    random.shuffle(IOMP_MT)
+    IOMP = sched.get_sheet(key, personnel_sheet)
+    IOMP = IOMP.loc[IOMP.current == 1, :]
+    admin_list = sorted(IOMP[IOMP.team == 'admin']['Nickname'].values)
+
+    # Number of shifts
+    shift_count = shift_divider(shiftdf, IOMP, admin_list)
+    fieldwork = sched.get_field(key, start_date, end_date)
+    # Assign admin
+    for name in admin_list:
+        shiftdf, shift_count = sched.assign_shift(name, shift_count, shiftdf, start_date, end_date, admin_list, fieldwork)
+    # Assign no CT
+    for name in shift_count.loc[(~shift_count.name.isin(admin_list)) & ((shift_count['IOMP-MT'] == 0) | (shift_count['IOMP-CT'] == 0)), 'name']:
+        shiftdf, shift_count = sched.assign_shift(name, shift_count, shiftdf, start_date, end_date, admin_list, fieldwork)
+    # Assign remaining IOMP
+    shiftdf = assign_remaining_IOMP(shiftdf, shift_count)
     
-    # holiday shifts
-    holiday_grp = holidays.groupby('ts', as_index=False)
-    holiday_shifts = holiday_grp.apply(shifts).reset_index(drop=True)
-    start_date = pd.to_datetime(min(holidays['ts'].values))
-    if int(start_date.strftime('%d')) == 1:
-        holiday_shifts = holiday_shifts[holiday_shifts.ts >= start_date]
-    holiday_shifts = holiday_shifts.drop_duplicates('ts')
-    # checks if holiday on a weekday
-    holiday_grp = holiday_shifts.groupby('ts', as_index=False)
-    holiday_shifts = holiday_grp.apply(check_weekdayAM).reset_index(drop=True)
-    # checks if holiday during the salary week (week of 15 and last week of the month)
-    holiday_grp = holiday_shifts.groupby('ts', as_index=False)
-    holiday_shifts = holiday_grp.apply(check_salary_week).reset_index(drop=True)
+    sched.shift_validity(shiftdf, shift_count)
+
     
-    holiday_shifts['IOMP-MT'] = '?'
-    holiday_shifts['IOMP-CT'] = '?'
-    
-    shift_each = math.floor((len(holiday_shifts) * 2) / len(staff))
-    
-    # assign shifts for ate amy:
-    not_salary_weekdayAM = holiday_shifts[holiday_shifts.weekdayAM & ~holiday_shifts.salary_week]['ts'].values
-    random.shuffle(not_salary_weekdayAM)
-    amy_shifts = not_salary_weekdayAM[0:shift_each]
-    for ts in amy_shifts:
-        holiday_shifts.loc[holiday_shifts.ts == ts, 'IOMP-CT'] = 'Amy'
-    
-    # assign shifts for the rest of the admin
-    weekdayAM_shift = sorted(holiday_shifts[holiday_shifts.weekdayAM & (holiday_shifts['IOMP-CT'] == '?')]['ts'].values)
-    admin.remove('Amy')
-    admin = admin * shift_each
-    for admin_i in admin:
-        ts = random.choice(weekdayAM_shift)
-        weekdayAM_shift.remove(ts)
-        holiday_shifts.loc[holiday_shifts.ts == ts, 'IOMP-CT'] = admin_i
-    
-    
-    except_admin = staff.loc[staff.team != 'admin', 'Nickname'].values
-    random.shuffle(except_admin)
-    
-    MT_ts = holiday_shifts.loc[holiday_shifts['IOMP-MT'] == '?', 'ts'].values
-    CT_ts = holiday_shifts.loc[holiday_shifts['IOMP-CT'] == '?', 'ts'].values
-    
-    while len(MT_ts) > len(except_admin)/2 and len(CT_ts) > len(except_admin)/2:
-        MT = except_admin[0:int((len(except_admin) + (len(MT_ts)-len(CT_ts))) / 2)]
-        holiday_shifts.loc[holiday_shifts.ts.isin(MT_ts[0:len(MT)]), 'IOMP-MT'] = MT
-        
-        CT = except_admin[int((len(except_admin) + (len(MT_ts)-len(CT_ts))) / 2):]
-        holiday_shifts.loc[holiday_shifts.ts.isin(CT_ts[0:len(CT)]), 'IOMP-CT'] = CT
-    
-        MT_ts = holiday_shifts.loc[holiday_shifts['IOMP-MT'] == '?', 'ts'].values
-        CT_ts = holiday_shifts.loc[holiday_shifts['IOMP-CT'] == '?', 'ts'].values
-    
-    MT = except_admin[0:len(MT_ts)]
-    holiday_shifts.loc[holiday_shifts.ts.isin(MT_ts[0:len(MT)]), 'IOMP-MT'] = MT
-    CT = except_admin[len(MT_ts):len(MT_ts)+len(CT_ts)]
-    holiday_shifts.loc[holiday_shifts.ts.isin(CT_ts[0:len(CT)]), 'IOMP-CT'] = CT
-    
-    
-    print (holiday_shifts)
-    
-    year = pd.to_datetime(holiday_shifts['ts'].values[0]).strftime('%Y')
+    year = pd.to_datetime(shiftdf['ts'].values[0]).strftime('%Y')
                   
     writer = pd.ExcelWriter('HolidayShift.xlsx')
     try:
         allsheet = pd.read_excel('HolidayShift.xlsx', sheet_name=None)
-        allsheet[year] = holiday_shifts
+        allsheet[year] = shiftdf
     except:
-        allsheet = {year: holiday_shifts}
+        allsheet = {year: shiftdf}
     for sheetname, xlsxdf in allsheet.items():
         xlsxdf.to_excel(writer, sheetname, index=False)
-        worksheet = writer.sheets[sheetname]
     writer.save()
     
-    return holiday_shifts
-    
+    return shiftdf
     
 if __name__ == "__main__":
-    holiday_shifts = main()
-
-    name_list = set(list(holiday_shifts["IOMP-MT"].values) + list(holiday_shifts["IOMP-CT"].values))
-    for name in sorted(name_list):
-        print(name)
-    #    print(shiftdf.loc[(shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name), :])
-        for ts in holiday_shifts.loc[(holiday_shifts['IOMP-MT'] == name) | (holiday_shifts['IOMP-CT'] == name), 'ts'].values:
-            ts = pd.to_datetime(ts)
-            if ts.time() == time(19,30):
-                cur = holiday_shifts.loc[(holiday_shifts.ts >= ts-timedelta(1)) & (holiday_shifts.ts <= ts+timedelta(1)), :]
-            else:
-                cur = holiday_shifts.loc[(holiday_shifts.ts >= ts-timedelta(0.5)) & (holiday_shifts.ts <= ts+timedelta(0.5)), :]
-            if Counter(cur.values.flatten())[name] != 1:
-                print(cur)
+    shiftdf = main()
