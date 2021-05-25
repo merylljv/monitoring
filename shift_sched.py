@@ -368,6 +368,11 @@ def assign_schedule(key, year, month, recompute=False):
     shiftdf = assign_remaining_IOMP(shiftdf, shift_count)
     shiftdf = shiftdf.loc[(shiftdf.ts >= curr_start), :]
     
+    total_shift = get_shift_count(year, month+1, key)
+    vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
+    vpl = set(vpl) - set(['Anj', 'Anne', 'Carlo', 'Chad', 'Eunice', 'Issa', 'Janine', 'Jes', 'JK', 'Kennex', 'Meryll', 'Pau', 'Rodney', 'Tine', 'Troy'])
+    print('VPL:\n', '\n'.join(sorted(vpl)))    
+
     # Write in xlsx
     writer = pd.ExcelWriter('MonitoringShift.xlsx')
     try:
@@ -377,12 +382,7 @@ def assign_schedule(key, year, month, recompute=False):
         allsheet = {shift_name: shiftdf}
     for sheet_name, xlsxdf in allsheet.items():
         xlsxdf.to_excel(writer, sheet_name, index=False)
-    writer.save()
-    
-    shift_count = allsheet = pd.read_excel('ShiftCount.xlsx', sheet_name=shift_name)
-    vpl = shift_count.loc[shift_count['IOMP-MT'] + shift_count['IOMP-CT'] == 2, 'name'].values
-    vpl = set(vpl) - set(['Anj', 'Anne', 'Carlo', 'Chad', 'Eunice', 'Issa', 'Janine', 'Kennex', 'Meryll', 'Pau', 'Rodney', 'Troy'])
-    print('VPL:\n', '\n'.join(sorted(vpl)))    
+    writer.save()    
     
     return shiftdf, shift_count
 
@@ -404,10 +404,10 @@ if __name__ == "__main__":
     start_time = datetime.now()
     
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
-    recompute = True
+    recompute = False
     
     year = 2021
-    month = 4
+    month = 5
     
     shiftdf, shift_count = assign_schedule(key, year, month, recompute=recompute)
     shift_validity(shiftdf, shift_count)
