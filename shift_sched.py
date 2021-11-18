@@ -43,7 +43,7 @@ def get_field(key, start, end):
     field.loc[:, 'Date of Departure'] = pd.to_datetime(field.loc[:, 'Date of Departure'].ffill())
     name = get_sheet(key, personnel_sheet)
     df = pd.merge(field, name, left_on='Personnel', right_on='Fullname')
-    df.loc[:, 'ts_range'] = df.apply(lambda row: pd.date_range(start=row['Date of Departure']-timedelta(hours=4.5), end=row['Date of Arrival']+timedelta(3)+timedelta(hours=19.5), freq='12H'), axis=1)
+    df.loc[:, 'ts_range'] = df.apply(lambda row: pd.date_range(start=row['Date of Departure']-timedelta(hours=4.5)-timedelta(2), end=row['Date of Arrival']+timedelta(3)+timedelta(hours=19.5), freq='12H'), axis=1)
     df = pd.DataFrame({'name':df.Nickname.repeat(df.ts_range.str.len()), 'ts':sum(map(list, df.ts_range), [])})
     df = df.loc[(df.ts >= start) & (df.ts <= end)]
     return df.reset_index(drop=True)
@@ -177,7 +177,7 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
 
 def allowed_shifts(name, shiftdf, shift_type, curr_start, next_start, admin_list, fieldwork, satPM):
     ts_list = shiftdf.loc[(shiftdf.ts > curr_start) & ((shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name)), 'ts'].values
-    week_list = list(map(lambda x: pd.to_datetime(x).isocalendar()[1], ts_list))
+    week_list = sorted(set(list(map(lambda x: pd.to_datetime(x).isocalendar()[1]*(np.floor(pd.to_datetime(x).hour/7)-1), ts_list))) - set([0]))
     shift_list = sorted(map(lambda x: pd.to_datetime(x), shiftdf.loc[(shiftdf.ts > curr_start) & (shiftdf[shift_type] == '?') & (~shiftdf.ts.apply(lambda x: pd.to_datetime(x).isocalendar()[1]).isin(week_list)), 'ts'].values))
     not_allowed = []
     for ts in ts_list:
@@ -208,7 +208,9 @@ def assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list,
         count = unassigned_shift.get(shift_type)
         while count > 0:
             shift_list = allowed_shifts(name, shiftdf, shift_type, curr_start, next_start, admin_list, fieldwork, satPM)
+            print(shift_list)
             ts = random.choice(shift_list)
+            print('shift:', ts)
             shiftdf.loc[shiftdf.ts == ts, shift_type] = name
             count -= 1
             shift_count.loc[shift_count.name == name, shift_type] -= 1
@@ -386,7 +388,7 @@ def assign_schedule(key, year, month, recompute=False):
     
     total_shift = get_shift_count(year, month+1, key)
     vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
-    vpl = set(vpl) - set(['Anj', 'Anne', 'Ardeth', 'Carlo', 'Chad', 'Eunice', 'Issa', 'Janine', 'Jec', 'Jes', 'JK', 'Johann', 'Kennex', 'Meryll', 'Nichole', 'Pau', 'Rodney', 'Roy', 'Tine', 'Troy'])
+    vpl = set(vpl) - set(['Anj', 'Anne', 'Ardeth', 'Brain', 'Carlo', 'Cath', 'Chad', 'Edch', 'Eunice', 'Gene', 'Issa', 'Janine', 'Jec', 'Jes', 'JK', 'Johann', 'Karl', 'Kate', 'Kennex', 'Lem', 'Marj', 'Meryll', 'Milky', 'Nichole', 'Pau', 'Rain', 'Rodney', 'Roy', 'Sky', 'Tine', 'Troy'])
     print('VPL:\n', '\n'.join(sorted(vpl)))    
 
     # Write in xlsx
@@ -400,18 +402,33 @@ def assign_schedule(key, year, month, recompute=False):
         xlsxdf.to_excel(writer, sheet_name, index=False)
     writer.save()    
     
-    return shiftdf, shift_count
+    return shiftdf, shift_count, fieldwork
 
 
-def shift_validity(shiftdf, shift_count):
+def shift_validity(shiftdf, shift_count, fieldwork):
     for name in shift_count.name:
         print(name)
         ts_list = sorted(shiftdf.loc[((shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name)), 'ts'].values)
         week_list = list(map(lambda x: pd.to_datetime(x).isocalendar()[1], ts_list))
         if len(week_list) != len(set(week_list)):
-            print('same week!', ts_list)
-        if any(pd.Series(ts_list).diff() < timedelta(1.5)):
-            print('consecutive shift!', ts_list)
+            df = pd.DataFrame({'ts': ts_list, 'week': week_list})
+            df.loc[df.ts.dt.time == time(7,30), 'shift_count'] = 1
+            df.loc[df.ts.dt.time == time(19,30), 'shift_count'] = 2
+            if any(df.groupby('week')['shift_count'].agg('sum') > 3):
+                print('same week!', ts_list)
+        ts_index = np.arange(len(ts_list))[pd.Series(ts_list).diff() < timedelta(1.5)]
+        if len(ts_index) > 0:
+            for i in ts_index:
+                ts = pd.to_datetime(ts_list[i])
+                prev_ts = pd.to_datetime(ts_list[i-1])
+                allowed_ts = ts - timedelta(1)
+                if ts.time() == time(19,30):
+                    allowed_ts -= timedelta(0.5)
+                if prev_ts > allowed_ts:
+                    print('consecutive shift!', prev_ts, ts)
+        if len(set(ts_list) - set(fieldwork.loc[fieldwork.name == name, 'ts'].values)) != len(ts_list):
+            print('fieldwork!', ts_list)
+        
             
             
 ###############################################################################
@@ -423,9 +440,9 @@ if __name__ == "__main__":
     recompute = False
     
     year = 2021
-    month = 8
+    month = 11
     
-    shiftdf, shift_count = assign_schedule(key, year, month, recompute=recompute)
-    shift_validity(shiftdf, shift_count)
+    shiftdf, shift_count, fieldwork = assign_schedule(key, year, month, recompute=recompute)
+    shift_validity(shiftdf, shift_count, fieldwork)
         
     print('runtime =', datetime.now()-start_time)
