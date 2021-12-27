@@ -43,6 +43,7 @@ def get_field(key, start, end):
     field.loc[:, 'Date of Departure'] = pd.to_datetime(field.loc[:, 'Date of Departure'].ffill())
     name = get_sheet(key, personnel_sheet)
     df = pd.merge(field, name, left_on='Personnel', right_on='Fullname')
+    df = df.loc[~((df['Date of Departure'].isnull()) | (df['Date of Arrival'].isnull())), :]
     df.loc[:, 'ts_range'] = df.apply(lambda row: pd.date_range(start=row['Date of Departure']-timedelta(hours=4.5)-timedelta(2), end=row['Date of Arrival']+timedelta(3)+timedelta(hours=19.5), freq='12H'), axis=1)
     df = pd.DataFrame({'name':df.Nickname.repeat(df.ts_range.str.len()), 'ts':sum(map(list, df.ts_range), [])})
     df = df.loc[(df.ts >= start) & (df.ts <= end)]
@@ -439,8 +440,8 @@ if __name__ == "__main__":
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
     recompute = False
     
-    year = 2021
-    month = 11
+    year = 2022
+    month = 1
     
     shiftdf, shift_count, fieldwork = assign_schedule(key, year, month, recompute=recompute)
     shift_validity(shiftdf, shift_count, fieldwork)
