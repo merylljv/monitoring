@@ -44,7 +44,7 @@ def get_field(key, start, end):
     name = get_sheet(key, personnel_sheet)
     df = pd.merge(field, name, left_on='Personnel', right_on='Fullname')
     df = df.loc[~((df['Date of Departure'].isnull()) | (df['Date of Arrival'].isnull())), :]
-    df.loc[:, 'ts_range'] = df.apply(lambda row: pd.date_range(start=row['Date of Departure']-timedelta(hours=4.5)-timedelta(2), end=row['Date of Arrival']+timedelta(hours=19.5), freq='12H'), axis=1)
+    df.loc[:, 'ts_range'] = df.apply(lambda row: pd.date_range(start=row['Date of Departure']-timedelta(hours=4.5), end=row['Date of Arrival']+timedelta(hours=19.5), freq='12H'), axis=1)
     df = pd.DataFrame({'name':df.Nickname.repeat(df.ts_range.str.len()), 'ts':sum(map(list, df.ts_range), [])})
     df = df.loc[(df.ts >= start) & (df.ts <= end)]
     return df.reset_index(drop=True)
@@ -196,10 +196,10 @@ def allowed_shifts(name, shiftdf, shift_type, curr_start, next_start, admin_list
 
 def assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list, fieldwork, satPM):
     print(name)
-#    if name in shift_count.loc[shift_count.mancomm == 1, 'name'].values:
-#        PM = set(shiftdf.ts[(shiftdf.ts.dt.time == time(19, 30))])
-#        weekend = shiftdf.ts[shiftdf.ts.apply(lambda x: pd.to_datetime(x).isocalendar()[2]).isin([6,7])]
-#        satPM = set(sorted(satPM) + sorted(PM) + sorted(weekend))
+    if name in shift_count.loc[shift_count.mancomm == 1, 'name'].values:
+        PM = set(shiftdf.ts[(shiftdf.ts.dt.time == time(19, 30))])
+        weekend = shiftdf.ts[shiftdf.ts.apply(lambda x: pd.to_datetime(x).isocalendar()[2]).isin([6,7])]
+        satPM = set(sorted(satPM) + sorted(PM) + sorted(weekend))
     unassigned_shift = shift_count.loc[shift_count.name == name, ['IOMP-MT', 'IOMP-CT']].to_dict(orient='records')[0]
     for shift_type in unassigned_shift.keys():
         count = unassigned_shift.get(shift_type)
@@ -231,6 +231,7 @@ def get_holidays(curr_start, next_start):
 
 def assign_with_holiday_shifts(holidays, shiftdf, shift_count, year, curr_start, next_start, admin_list, fieldwork, satPM):
     print('### holiday ###')
+    holidays = holidays.fillna('?')
     holiday_ts = holidays.groupby('ts', as_index=False)
     holiday_ts.apply(assign_holiday_shifts, shiftdf=shiftdf)
     
@@ -261,7 +262,8 @@ def assign_with_fieldwork(fieldwork, shiftdf, shift_count, admin_list, curr_star
     field_shift_count = pd.DataFrame(field_shift_count.items(), columns=['name', 'field_shift_count'])
     field_shift_count = field_shift_count.loc[~field_shift_count.name.isin(admin_list), :]
     field_shift_count = field_shift_count.sort_values('field_shift_count', ascending=False)
-    for name in set(field_shift_count.name) - set(np.ndarray.flatten(shiftdf.loc[shiftdf.ts > curr_start, ['IOMP-MT', 'IOMP-CT']].values)):
+    with_field = set(field_shift_count.name) - set(shift_count.loc[shift_count.apply(lambda row: (row['IOMP-MT']+row['IOMP-CT'])==0, axis=1), 'name'])
+    for name in with_field - set(np.ndarray.flatten(shiftdf.loc[shiftdf.ts > curr_start, ['IOMP-MT', 'IOMP-CT']].values)):
         shiftdf, shift_count = assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list, fieldwork, satPM)
     return shiftdf, shift_count
 
@@ -383,20 +385,19 @@ def assign_schedule(key, recompute=False):
     
     # Shift of remaining personnel
     shiftdf = assign_remaining_IOMP(shiftdf, shift_count)
-    shiftdf = shiftdf.loc[(shiftdf.ts >= curr_start), :]
     
     total_shift = get_shift_count(year, month+1, key)
     vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
-    vpl = set(vpl) - set(['Anj', 'Dan', 'David', 'Don', 'Gene', 'Jacq', 'Jaja', 'Janine', 'Jec', 'Johann', 'Karl', 'Kate', 'Ken', 'Kennex', 'Lem', 'Milky', 'Nathan', 'Pau', 'Paul', 'Rasty', 'Reyn', 'Roy'])
+    vpl = set(vpl) - set(['Anj', 'Chatty', 'Dan', 'David', 'Don', 'Edch', 'Gene', 'Jacq', 'Jaja', 'Janine', 'Jec', 'Johann', 'John', 'Juin', 'Karl', 'Kate', 'Ken', 'Kennex', 'Lem', 'Lorena', 'Meryll', 'Marj', 'Milky', 'Nathan', 'Pau', 'Paul', 'Rasty', 'Reyn', 'Roy', 'Tine'])
     print('VPL:\n', '\n'.join(sorted(vpl)))    
 
     # Write in xlsx
     writer = pd.ExcelWriter('MonitoringShift.xlsx')
     try:
         allsheet = pd.read_excel('MonitoringShift.xlsx', sheet_name=None)
-        allsheet[shift_name] = shiftdf
+        allsheet[shift_name] = shiftdf.loc[(shiftdf.ts >= curr_start), :]
     except:
-        allsheet = {shift_name: shiftdf}
+        allsheet = {shift_name: shiftdf.loc[(shiftdf.ts >= curr_start), :]}
     for sheet_name, xlsxdf in allsheet.items():
         xlsxdf.to_excel(writer, sheet_name, index=False)
     writer.save()    
@@ -440,7 +441,9 @@ if __name__ == "__main__":
         
     shiftdf, shift_count, fieldwork = assign_schedule(key, recompute=recompute)
     shift_validity(shiftdf, shift_count, fieldwork)
-        
+    
+    ########## check shift validity with end of previous shift
+    
     print('runtime =', datetime.now()-start_time)
     
 #    shiftdf = pd.read_excel('MonitoringShift.xlsx', sheet_name='Apr2022')
