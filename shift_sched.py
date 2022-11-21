@@ -441,7 +441,7 @@ if __name__ == "__main__":
         
     shiftdf, shift_count, fieldwork = assign_schedule(key, recompute=recompute)
     shift_validity(shiftdf, shift_count, fieldwork)
-    
+ 
     ########## check shift validity with end of previous shift
     
     print('runtime =', datetime.now()-start_time)
