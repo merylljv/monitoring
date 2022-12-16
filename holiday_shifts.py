@@ -19,7 +19,6 @@ def get_holiday_shifts(holiday):
     df = pd.DataFrame({'ts': ts_list})
     return df
 
-
 def shift_divider(shift_list, IOMP, admin_list):
     min_shift = int(np.floor(2 * len(shift_list) / len(IOMP)))
     shift_count = pd.DataFrame(index = IOMP['Nickname'].values, columns=['IOMP-MT', 'IOMP-CT']).rename_axis('name')
