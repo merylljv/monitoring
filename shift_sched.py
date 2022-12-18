@@ -71,7 +71,7 @@ def get_shift_count(year, month, key, backup=2):
     total_shift.loc[:, 'IOMP-MT'] = total_shift.loc[:, 'IOMP-MT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
     total_shift.loc[:, 'IOMP-CT'] = total_shift.loc[:, 'IOMP-CT'] + total_shift['new'].apply(lambda x: np.ceil(eq_shift*x))
     total_shift.loc[:, 'total'] = total_shift['IOMP-MT'] + total_shift['IOMP-CT']
-    total_shift = total_shift.loc[:, ['team', 'mancomm', 'IOMP-MT', 'IOMP-CT', 'total']]
+    total_shift = total_shift.loc[:, ['team', 'AM_shifts', 'IOMP-MT', 'IOMP-CT', 'total']]
     return total_shift.sort_index()
 
 
@@ -88,7 +88,7 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
         total_shift = get_shift_count(year, month, key)
         shift_num = sorted(set(total_shift.loc[total_shift.team != 'admin', 'total']))
         num_days = (next_start - timedelta(1)).day
-        shift_count = total_shift.loc[:, ['team', 'mancomm']].reset_index()
+        shift_count = total_shift.loc[:, ['team', 'AM_shifts']].reset_index()
         shift_count.loc[shift_count.team.isin(['MT', 'CT']), 'IOMP-MT'] = 1
         shift_count.loc[shift_count.team == 'admin', 'IOMP-MT'] = 0
         shift_count.loc[:, 'IOMP-CT'] = 1
@@ -164,7 +164,7 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
         except:
             allsheet = {shift_name: shift_count}
         for sheet_name, xlsxdf in allsheet.items():
-            xlsxdf.loc[:, ['name', 'team', 'mancomm', 'IOMP-MT', 'IOMP-CT']].to_excel(writer, sheet_name, index=False)
+            xlsxdf.loc[:, ['name', 'team', 'AM_shifts', 'IOMP-MT', 'IOMP-CT']].to_excel(writer, sheet_name, index=False)
         writer.save()
     else:
         shift_count = allsheet[shift_name]
@@ -194,9 +194,9 @@ def allowed_shifts(name, shiftdf, shift_type, curr_start, next_start, admin_list
     return shift_list
 
 
-def assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list, fieldwork, satPM):
+def assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list, fieldwork, satPM=set()):
     print(name)
-    if name in shift_count.loc[shift_count.mancomm == 1, 'name'].values:
+    if name in shift_count.loc[shift_count.AM_shifts == 1, 'name'].values:
         PM = set(shiftdf.ts[(shiftdf.ts.dt.time == time(19, 30))])
         weekend = shiftdf.ts[shiftdf.ts.apply(lambda x: pd.to_datetime(x).isocalendar()[2]).isin([6,7])]
         satPM = set(sorted(satPM) + sorted(PM) + sorted(weekend))
