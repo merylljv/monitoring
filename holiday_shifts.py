@@ -20,27 +20,28 @@ def get_holiday_shifts(holiday):
     return df
 
 def shift_divider(shift_list, IOMP, admin_list):
-    min_shift = int(np.floor(2 * len(shift_list) / len(IOMP)))
-    shift_count = pd.DataFrame(index = IOMP['Nickname'].values, columns=['IOMP-MT', 'IOMP-CT']).rename_axis('name')
+    IOMP.loc[:, ['IOMP-MT', 'IOMP-CT']] = np.nan
+    shift_count = IOMP.loc[:, ['Nickname', 'AM_shifts', 'IOMP-MT', 'IOMP-CT']].rename(columns={'Nickname': 'name'})
+    min_shift = int(np.floor(2 * len(shift_list) / len(shift_count)))
     # admin
-    shift_count.loc[shift_count.index.isin(admin_list), 'IOMP-CT'] = min_shift
+    shift_count.loc[shift_count.name.isin(admin_list), 'IOMP-CT'] = min_shift
     # non-admin
-    non_admin_list = sorted(set(IOMP['Nickname']) - set(admin_list))
+    non_admin_list = sorted(set(shift_count['name']) - set(admin_list))
     MT_count = len(shift_list)
     CT_count = len(shift_list) - min_shift * len(admin_list)
     # at least 1 MT shift for non-admin
-    shift_count.loc[shift_count.index.isin(non_admin_list), 'IOMP-MT'] = 1
+    shift_count.loc[shift_count.name.isin(non_admin_list), 'IOMP-MT'] = 1
     MT_count -= len(non_admin_list)
     random.shuffle(non_admin_list)
     if CT_count > len(non_admin_list):
-        shift_count.loc[shift_count.index.isin(non_admin_list), 'IOMP-CT'] = 1
+        shift_count.loc[shift_count.name.isin(non_admin_list), 'IOMP-CT'] = 1
         CT_count -= len(non_admin_list)
-        shift_count.loc[shift_count.index.isin(non_admin_list[:CT_count]), 'IOMP-CT'] += 1
-        shift_count.loc[shift_count.index.isin(non_admin_list[CT_count:CT_count+MT_count]), 'IOMP-CT'] += 1
+        shift_count.loc[shift_count.name.isin(non_admin_list[:CT_count]), 'IOMP-CT'] += 1
+        shift_count.loc[shift_count.name.isin(non_admin_list[CT_count:CT_count+MT_count]), 'IOMP-MT'] += 1
     else:
-        shift_count.loc[shift_count.index.isin(non_admin_list[len(non_admin_list)-CT_count:]), 'IOMP-CT'] = 1
-        shift_count.loc[shift_count.index.isin(non_admin_list[:MT_count]), 'IOMP-MT'] += 1
-    shift_count = shift_count.fillna(0).reset_index()
+        shift_count.loc[shift_count.name.isin(non_admin_list[len(non_admin_list)-CT_count:]), 'IOMP-CT'] = 1
+        shift_count.loc[shift_count.name.isin(non_admin_list[:MT_count]), 'IOMP-MT'] += 1
+    shift_count = shift_count.fillna(0)
     
     return shift_count
 
@@ -119,9 +120,8 @@ def main():
     # Assign remaining IOMP
     shiftdf = assign_remaining_IOMP(shiftdf, shift_count)
     
-    sched.shift_validity(shiftdf, shift_count)
+    sched.shift_validity(shiftdf, shift_count, fieldwork)
 
-    
     year = pd.to_datetime(shiftdf['ts'].values[0]).strftime('%Y')
                   
     writer = pd.ExcelWriter('HolidayShift.xlsx')
