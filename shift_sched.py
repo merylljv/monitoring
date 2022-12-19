@@ -51,7 +51,7 @@ def get_field(key, start, end):
 
 
 def get_shift_count(year, month, key, backup=2):
-    df = pd.DataFrame()
+    df = pd.DataFrame(columns=['IOMP-MT', 'IOMP-CT']).rename_axis('name')
     for i in range(1, month):
         ts = pd.to_datetime(date(year, i, 1)).strftime('%b%Y')
         dfi = pd.read_excel('ShiftCount.xlsx', sheet_name=ts, index_col='name')
@@ -97,7 +97,7 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
             rem_CT = int(2*num_days - sum(shift_count['IOMP-CT']))
             if rem_MT + rem_CT == 0:
                 break
-            least_shift = total_shift.loc[total_shift.total == least_num, :].reset_index()
+            least_shift = total_shift.loc[(total_shift.total == least_num) & (total_shift.team != 'admin'), :].reset_index()
             CT_least_shift = least_shift[least_shift.team == 'CT']
             MT_least_shift = least_shift[least_shift.team == 'MT']
             # if remaining CT and MT shifts is more than the CT and MT personnel with least shifts
@@ -342,7 +342,12 @@ def assign_remaining_IOMP(shiftdf, shift_count):
 def assign_schedule(key, recompute=False):
     now = datetime.now()
     year = now.year
-    month = now.month+1
+    month = now.month
+    if month != 12:
+       month += 1
+    else:
+      month = 1
+      year += 1
     
     curr_start = pd.to_datetime(date(year, month, 1)) + timedelta(hours=7.5)
     shift_name = curr_start.strftime('%b%Y')
@@ -388,7 +393,7 @@ def assign_schedule(key, recompute=False):
     
     total_shift = get_shift_count(year, month+1, key)
     vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
-    vpl = set(vpl) - set(['Anj', 'Chatty', 'Dan', 'David', 'Don', 'Edch', 'Gene', 'Jacq', 'Jaja', 'Janine', 'Jec', 'Johann', 'John', 'Juin', 'Karl', 'Kate', 'Ken', 'Kennex', 'Lem', 'Lorena', 'Meryll', 'Marj', 'Milky', 'Nathan', 'Pau', 'Paul', 'Rasty', 'Reyn', 'Roy', 'Tine'])
+    vpl = set(vpl) - set([])
     print('VPL:\n', '\n'.join(sorted(vpl)))    
 
     # Write in xlsx

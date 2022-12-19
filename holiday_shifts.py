@@ -20,7 +20,8 @@ def get_holiday_shifts(holiday):
     return df
 
 def shift_divider(shift_list, IOMP, admin_list):
-    IOMP.loc[:, ['IOMP-MT', 'IOMP-CT']] = np.nan
+    IOMP.loc[:, 'IOMP-MT'] = np.nan
+    IOMP.loc[:, 'IOMP-CT'] = np.nan
     shift_count = IOMP.loc[:, ['Nickname', 'AM_shifts', 'IOMP-MT', 'IOMP-CT']].rename(columns={'Nickname': 'name'})
     min_shift = int(np.floor(2 * len(shift_list) / len(shift_count)))
     # admin
