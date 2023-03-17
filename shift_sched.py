@@ -241,7 +241,7 @@ def assign_with_holiday_shifts(holidays, shiftdf, shift_count, year, curr_start,
     for CT in holidays['IOMP-CT'].values:
         shift_count.loc[shift_count.name == CT, 'IOMP-CT'] -= 1
     
-    with_holiday_shifts = sorted(set(np.ndarray.flatten(shiftdf.loc[(shiftdf.ts >= curr_start) & (shiftdf['IOMP-MT'] != '?') & (shiftdf['IOMP-CT'] != '?'), ['IOMP-MT', 'IOMP-CT']].values)))
+    with_holiday_shifts = sorted(set(np.ndarray.flatten(shiftdf.loc[(shiftdf.ts >= curr_start), ['IOMP-MT', 'IOMP-CT']].values)) - set(['?']))
     
     for name in with_holiday_shifts:
         shiftdf, shift_count = assign_shift(name, shift_count, shiftdf, curr_start, next_start, admin_list, fieldwork, satPM)
@@ -393,7 +393,7 @@ def assign_schedule(key, recompute=False):
     
     total_shift = get_shift_count(year, month+1, key)
     vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
-    vpl = set(vpl) - set([])
+    vpl = set(vpl) - set(['Karl','Jaja','Nichi','Marj','Pau','Tine','Phin'])
     print('VPL:\n', '\n'.join(sorted(vpl)))    
 
     # Write in xlsx
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     start_time = datetime.now()
     
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
-    recompute = False
+    recompute = True
         
     shiftdf, shift_count, fieldwork = assign_schedule(key, recompute=recompute)
     shift_validity(shiftdf, shift_count, fieldwork)
