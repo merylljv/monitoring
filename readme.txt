@@ -7,9 +7,6 @@
 	- Input previous VPL in previous_vpl
 3. Check ShiftCount.xlsx if adjustment is needed then repeat 2. Else, proceed to 4
 	- Adjust counts (newbies: 1 MT and CT each)
-	- Get lowest number of shifts to assign excess
-		- get total shift count → total_shift = get_shift_count(2022, 12, key)
-		- sort count → total_shift.sort_values('total')
 4. Duplicate current month's sheet in gsheet
 	- Reset then edit month name
 	- Paste VPL
