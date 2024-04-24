@@ -91,7 +91,7 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
         shift_count = total_shift.loc[:, ['team', 'AM_shifts']].reset_index()
         shift_count.loc[shift_count.team.isin(['MT', 'CT']), 'IOMP-MT'] = 1
         shift_count.loc[shift_count.team == 'admin', 'IOMP-MT'] = 0
-        shift_count.loc[:, 'IOMP-CT'] = 1
+        shift_count.loc[:, 'IOMP-CT'] = 1 
         for least_num in shift_num:
             rem_MT = int(2*num_days - sum(shift_count['IOMP-MT']))
             rem_CT = int(2*num_days - sum(shift_count['IOMP-CT']))
@@ -153,19 +153,10 @@ def shift_divider(key, year, month, next_start, shift_name, recompute=False):
                     shift_count.loc[shift_count.name.isin(MT_list[0:len(MT_list)-rem_CT]), 'IOMP-MT'] += 1
                     CT_list = set(MT_list) - set(MT_list[0:len(MT_list)-rem_CT])
                     shift_count.loc[shift_count.name.isin(CT_list), 'IOMP-CT'] += 1
-    
-        writer = pd.ExcelWriter('ShiftCount.xlsx')
-        shift_count['team'] = ','.join(shift_count['team'].values).split(',')
-        shift_count = shift_count.sort_values('name')
-        
-        try:
-            allsheet = pd.read_excel('ShiftCount.xlsx', sheet_name=None)
-            allsheet[shift_name] = shift_count
-        except:
-            allsheet = {shift_name: shift_count}
-        for sheet_name, xlsxdf in allsheet.items():
-            xlsxdf.loc[:, ['name', 'team', 'AM_shifts', 'IOMP-MT', 'IOMP-CT']].to_excel(writer, sheet_name, index=False)
-        writer.save()
+        with pd.ExcelWriter('ShiftCount.xlsx', engine='openpyxl', mode='a') as writer:
+            shift_count['team'] = ','.join(shift_count['team'].values).split(',')
+            shift_count = shift_count.sort_values('name')
+            shift_count.to_excel(writer, sheet_name=shift_name, index=False)
     else:
         shift_count = allsheet[shift_name]
 
@@ -186,10 +177,10 @@ def allowed_shifts(name, shiftdf, shift_type, curr_start, next_start, admin_list
             not_allowed += [ts+timedelta(1), ts-timedelta(1)]
     if name in admin_list:
         not_allowed += sorted(np.array(shift_list)[np.invert(list(map(lambda x: (x.isocalendar()[2] in range(1,6)) & (x.time() == time(7,30)), shift_list)))])
-    if name == 'Amy':
-        date_list = pd.date_range(curr_start, next_start, freq='SM')
-        salary_week = list(map(lambda x: x.isocalendar()[1], date_list))
-        not_allowed += sorted(np.array(shift_list)[list(map(lambda x: x.isocalendar()[1] in salary_week, shift_list))])
+#    if name == 'Amy':
+#        date_list = pd.date_range(curr_start, next_start, freq='SM')
+#        salary_week = list(map(lambda x: x.isocalendar()[1], date_list))
+#        not_allowed += sorted(np.array(shift_list)[list(map(lambda x: x.isocalendar()[1] in salary_week, shift_list))])
     shift_list = sorted(set(shift_list) - set(not_allowed) - set(fieldwork.loc[fieldwork.name == name, 'ts']) - satPM)
     return shift_list
 
@@ -322,7 +313,7 @@ def assign_remaining_IOMP(shiftdf, shift_count):
 
     # assign remaining shifts
     remaining_IOMP = list(remaining_IOMP) + list(extra_MT) + list(extra_CT)
-    MT = remaining_IOMP[1::2]
+    MT = remaining_IOMP[1::2]   
     temp_MT_shift = MT_shift[0:len(MT)]
     MT_shift = sorted(set(MT_shift) - set(temp_MT_shift))
     shiftdf.loc[shiftdf.ts.isin(temp_MT_shift), 'IOMP-MT'] = MT
@@ -339,7 +330,7 @@ def assign_remaining_IOMP(shiftdf, shift_count):
     return shiftdf
 
 
-def assign_schedule(key, recompute=False):
+def assign_schedule(key, previous_vpl, recompute=False):
     now = datetime.now()
     year = now.year
     month = now.month
@@ -370,7 +361,8 @@ def assign_schedule(key, recompute=False):
     # Empty shift schedule
     shiftTS = pd.date_range(start=curr_start, end=next_start, freq='12H')
     shiftdf = pd.DataFrame({'ts': shiftTS, 'IOMP-MT': ['?']*len(shiftTS), 'IOMP-CT': ['?']*len(shiftTS)})
-    shiftdf = prev_shift.loc[prev_shift.ts == max(prev_shift.ts), :].append(shiftdf, sort=False, ignore_index=True)
+    shiftdf = pd.concat([prev_shift.loc[prev_shift.ts == max(prev_shift.ts), :],shiftdf], sort=False, ignore_index=True)
+    # shiftdf = prev_shift.loc[prev_shift.ts == max(prev_shift.ts), :].append(shiftdf, sort=False, ignore_index=True)
     holidays = get_holidays(curr_start, next_start)
 #    satPM = set(shiftdf.ts[(shiftdf.ts.apply(lambda x: pd.to_datetime(x).isocalendar()[2]) == 6) & (shiftdf.ts.dt.month == month) & (shiftdf.ts.dt.time == time(19, 30))])
 #    satPM -= set(holidays.ts)
@@ -391,12 +383,10 @@ def assign_schedule(key, recompute=False):
     # Shift of remaining personnel
     shiftdf = assign_remaining_IOMP(shiftdf, shift_count)
     
-    total_shift = get_shift_count(year, month+1, key)
-    vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1], :].index
-    vpl = set(vpl) - set(['Karl','Jaja','Nichi','Marj','Pau','Tine','Phin'])
-    print('VPL:\n', '\n'.join(sorted(vpl)))    
-
-    # Write in xlsx
+    total_shift = get_shift_count(year, month+1, key)    
+    vpl = total_shift.loc[total_shift.total == sorted(set(total_shift.total))[1]].index
+    vpl = vpl[~vpl.isin(previous_vpl)]
+    print('### VPL: ### \n', '\n'.join(sorted(vpl)))   
     writer = pd.ExcelWriter('MonitoringShift.xlsx')
     try:
         allsheet = pd.read_excel('MonitoringShift.xlsx', sheet_name=None)
@@ -405,12 +395,13 @@ def assign_schedule(key, recompute=False):
         allsheet = {shift_name: shiftdf.loc[(shiftdf.ts >= curr_start), :]}
     for sheet_name, xlsxdf in allsheet.items():
         xlsxdf.to_excel(writer, sheet_name, index=False)
-    writer.save()    
+    writer.close()    
     
     return shiftdf, shift_count, fieldwork
 
 
 def shift_validity(shiftdf, shift_count, fieldwork):
+    print("### processed ###")
     for name in shift_count.name:
         print(name)
         ts_list = sorted(shiftdf.loc[((shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name)), 'ts'].values)
@@ -441,14 +432,14 @@ def shift_validity(shiftdf, shift_count, fieldwork):
 if __name__ == "__main__":
     start_time = datetime.now()
     
+    previous_vpl = ['Jel', 'Marj', 'Leb', 'Kennex', 'Edch']
     key = "1UylXLwDv1W1ukT4YNoUGgHCHF-W8e3F8-pIg1E024ho"
-    recompute = True
+    recompute = False
         
-    shiftdf, shift_count, fieldwork = assign_schedule(key, recompute=recompute)
+    shiftdf, shift_count, fieldwork = assign_schedule(key, previous_vpl, recompute=recompute)
     shift_validity(shiftdf, shift_count, fieldwork)
  
     ########## check shift validity with end of previous shift
     
     print('runtime =', datetime.now()-start_time)
-    
-#    shiftdf = pd.read_excel('MonitoringShift.xlsx', sheet_name='Apr2022')
+
