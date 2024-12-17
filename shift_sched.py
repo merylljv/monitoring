@@ -358,6 +358,7 @@ def main(key, previous_vpl, recompute=False):
 
 
 def shift_validity(shiftdf, shift_count, fieldwork):
+    print("### processed ###")
     for name in shift_count.name:
         ts_list = sorted(shiftdf.loc[((shiftdf['IOMP-MT'] == name) | (shiftdf['IOMP-CT'] == name)), 'ts'].values)
         week_list = list(map(lambda x: pd.to_datetime(x).isocalendar()[1], ts_list))

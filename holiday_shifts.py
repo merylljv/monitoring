@@ -133,7 +133,7 @@ def main():
         allsheet = {year: shiftdf}
     for sheetname, xlsxdf in allsheet.items():
         xlsxdf.to_excel(writer, sheetname, index=False)
-    writer.save()
+    writer.close()
     
     return shiftdf
     
